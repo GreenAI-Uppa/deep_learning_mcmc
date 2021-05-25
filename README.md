@@ -1,8 +1,7 @@
-# deep learning by MCMC
+# Deep learning by MCMC
 
-Well, not so deep, because the repo does it with one layer. 
 
-This repo provides the code to optimize a linear model with Markov Chain Monte Carlo Optimization
+This repo is a work in progress to provide the code to optimize a linear model with Markov Chain Monte Carlo Optimization
 
 
  Installation
