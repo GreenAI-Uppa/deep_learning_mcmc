@@ -41,8 +41,10 @@ class Two_layer(nn.Module):
 
     def forward(self, x):
         x = self.flatten(x)
-        self.soft_input = self.linear(x)
-        logits = self.activation(self.soft_input)
+        x = self.linear1(x)
+        x = self.activation(x)
+        x = self.linear2(x)
+        logits = self.activation(x)
         return logits
 
 

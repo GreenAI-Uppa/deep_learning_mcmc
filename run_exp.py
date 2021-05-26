@@ -69,7 +69,7 @@ test_dataloader = DataLoader(test_data, batch_size=batch_size)
 
 input_size = 3072 
 output_size = 10
-model = nets.One_layer(input_size, output_size, act='relu')
+model = nets.Two_layer(input_size, output_size, act='relu')
 results = {}
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------------")

@@ -10,9 +10,10 @@ def gradient(X, y, model, loss_fn, lr=0.001):
     pred = model(X)
     los = loss_fn(pred, y)
     gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
-    model.linear.weight.data = model.linear.weight.data - gg[0] * lr 
-    model.linear.bias.data = model.linear.bias.data - gg[1] * lr
-
+    model.linear1.weight.data -= gg[0] * lr 
+    model.linear1.bias.data -= gg[1] * lr
+    model.linear2.weight.data -= gg[2] * lr 
+    model.linear2.bias.data -= gg[3] * lr
 
 def gradient_line(X, y, model, loss_fn):
     """
