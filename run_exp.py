@@ -87,6 +87,6 @@ for t in range(epochs):
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy }
     if use_gradient:
-      json.dump(results, open(exp_name+'_'+str(lr)+'_'+str(t)+'.json','w'))
+      json.dump(results, open(exp_name+'_'+str(lr)+'.json','w'))
     else:
-      json.dump(results, open(exp_name+'_'+str(lamb)+'_'+str(t)+'.json','w'))
+      json.dump(results, open(exp_name+'_'+str(lamb)+'.json','w'))
