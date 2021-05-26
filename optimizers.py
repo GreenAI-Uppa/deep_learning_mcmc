@@ -68,13 +68,13 @@ def mcmc(X, y, model, loss_fn, st, lamb=1000000, iter_mcmc=50):
     acceptance_ratio
     model : optimised model (modified by reference)
     """
-    n_output = model.linear.weight.data.shape[0]
+    n_hidden = model.linear1.weight.data.shape[0]
     accepts, not_accepts = 0., 0. # to keep track of the acceptance ratop
     pred = model(X)
     loss = loss_fn(pred,y).item()
     for i in range(iter_mcmc):
         # selecting a line at random
-        idx_row = torch.randint(0, n_output, (1,))
+        idx_row = torch.randint(0, n_hidden, (1,))
         # sampling a proposal for this line
         epsilon = torch.tensor(st.sample(model.linear.weight.data[idx_row].shape[1]+1).astype('float32'))[:,0]
         params_line = torch.cat((model.linear.weight.data[idx_row][0],model.linear.bias.data[idx_row]))
