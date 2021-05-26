@@ -59,10 +59,17 @@ lamb = args.lamb #1000000
 exp_name=args.exp_name
 use_gradient = args.use_gradient
 
+if use_gradient and batch_size > 1000:
+    print("!!!!!!!!!!!!!!!!!!!!!!")
+    print("WARNING, you are using SGD and the batch size is ", batch_size)
+    print("This might be too high, consider the option --batch_size 64")
+    print()
 train_dataloader = DataLoader(training_data, batch_size=batch_size)
 test_dataloader = DataLoader(test_data, batch_size=batch_size)
 
-model = nets.NeuralNetwork(act='relu')
+input_size = 3072 
+output_size = 10
+model = nets.One_layer(input_size, output_size, act='relu')
 results = {}
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------------")

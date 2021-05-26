@@ -1,12 +1,11 @@
 from torch import nn
 import torch
 
-
-class NeuralNetwork(nn.Module):
-    def __init__(self, act='relu'):
-        super(NeuralNetwork, self).__init__()
+class One_layer(nn.Module):
+    def __init__(self, input_size, output_size, act='relu'):
+        super(One_layer, self).__init__()
         self.flatten = nn.Flatten()
-        self.linear = nn.Linear(3072, 10)
+        self.linear = nn.Linear(input_size, output_size)
         if act == 'soft':
             print('using softmax activation')
             self.activation = nn.Softmax()
@@ -22,8 +21,29 @@ class NeuralNetwork(nn.Module):
         self.soft_input = self.linear(x)
         logits = self.activation(self.soft_input)
         return logits
-    def delta_loss(y):
-        pass
+
+class Two_layer(nn.Module):
+    def __init__(self, input_size, output_size, act='relu'):
+        super(Two_layer, self).__init__()
+        self.hidden_size = 100
+        self.flatten = nn.Flatten()
+        self.linear1 = nn.Linear(input_size, self.hidden_size)
+        self.linear2 = nn.Linear(self.hidden_size, output_size)
+        if act == 'soft':
+            print('using softmax activation')
+            self.activation = nn.Softmax()
+        elif act =='elu':
+            print('using rely activation')
+            self.activation = nn.ELU()
+        else:
+            self.activation = nn.ReLU()
+        self.soft_input = []
+
+    def forward(self, x):
+        x = self.flatten(x)
+        self.soft_input = self.linear(x)
+        logits = self.activation(self.soft_input)
+        return logits
 
 
 
