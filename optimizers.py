@@ -69,22 +69,39 @@ def mcmc(X, y, model, loss_fn, st, lamb=1000000, iter_mcmc=50):
     model : optimised model (modified by reference)
     """
     n_hidden = model.linear1.weight.data.shape[0]
+    n_output = model.linear2.bias.data.shape[0]
     accepts, not_accepts = 0., 0. # to keep track of the acceptance ratop
     pred = model(X)
     loss = loss_fn(pred,y).item()
     for i in range(iter_mcmc):
         # selecting a line at random
-        idx_row = torch.randint(0, n_hidden, (1,))
-        # sampling a proposal for this line
-        epsilon = torch.tensor(st.sample(model.linear.weight.data[idx_row].shape[1]+1).astype('float32'))[:,0]
-        params_line = torch.cat((model.linear.weight.data[idx_row][0],model.linear.bias.data[idx_row]))
+        idx_hidden = torch.randint(0, n_hidden, (1,))
+        idx_output = -1
+        if torch.randint(0,int(n_hidden/n_output), (1,)) == 0:
+            idx_output = torch.randint(0,n_output, (1,))
+
+        # size of the neighboroud considered
+        if idx_output == -1:
+            num_params = model.linear1.weight.data.shape[1] + 1 + model.linear2.weight.data.shape[0] 
+            params_line = torch.cat((model.linear1.weight.data[idx_hidden][0], model.linear1.bias.data[idx_hidden], model.linear2.weight.data[:,idx_hidden][:,0]))
+        else:
+            num_params = model.linear1.weight.data.shape[1] + 1 + model.linear2.weight.data.shape[0] + 1
+            params_line = torch.cat((model.linear1.weight.data[idx_hidden][0],model.linear1.bias.data[idx_hidden], model.linear2.weight.data[:,idx_hidden][:,0], model.linear2.bias.data[idx_output]))
+
+        # sampling a proposal for these parameters
+        epsilon = torch.tensor(st.sample(num_params).astype('float32'))[:,0]
 
         # getting the ratio of the students
         student_ratio, params_tilde = st.get_ratio(epsilon, params_line)
 
         # applying the changes to get the new value of the loss
-        model.linear.weight.data[idx_row] += epsilon[:-1]
-        model.linear.bias.data[idx_row] += epsilon[-1]
+        model.linear1.weight.data[idx_hidden] += epsilon[:model.linear1.weight.data.shape[1]]
+        model.linear1.bias.data[idx_hidden] += epsilon[model.linear1.weight.data.shape[1]]
+
+        model.linear2.weight.data[:,idx_hidden] += epsilon[model.linear1.weight.data.shape[1]+1:model.linear1.weight.data.shape[1]+1+n_output].reshape(n_output,1)
+        if idx_output != -1:
+            model.linear2.bias.data[idx_output] += epsilon[-1]
+
         pred = model(X)
         loss_prop = loss_fn(pred, y)
 
@@ -99,7 +116,11 @@ def mcmc(X, y, model, loss_fn, st, lamb=1000000, iter_mcmc=50):
         else:
           # not accepting, so undoing the change
           not_accepts += 1
-          model.linear.weight.data[idx_row] -= epsilon[:-1]
-          model.linear.bias.data[idx_row] -= epsilon[-1]
+          model.linear1.weight.data[idx_hidden] -= epsilon[:model.linear1.weight.data.shape[1]]
+          model.linear1.bias.data[idx_hidden] -= epsilon[model.linear1.weight.data.shape[1]]
+
+          model.linear2.weight.data[:,idx_hidden] -= epsilon[model.linear1.weight.data.shape[1]+1:model.linear1.weight.data.shape[1]+1+n_output].reshape(n_output,1)
+          if idx_output != -1:
+            model.linear2.bias.data[idx_output] -= epsilon[-1]
     acceptance_ratio = accepts / (not_accepts + accepts)
     return acceptance_ratio
