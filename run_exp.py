@@ -30,8 +30,8 @@ parser.add_argument('--exp_name', dest='exp_name',
                     help='basename for the json file in which the accuracy and the loss will be recorded',
                     default='results', type=str)
 parser.add_argument('--data_folder',
-                    help='data which contain the cifar10 dataset. Pytorch will download it if it does not exist',
-                    default="/home/paul/data/pytorch_cifar10", type=str)
+                    help='absolute path toward the data folder which contains the cifar10 dataset. Pytorch will download it if it does not exist',
+                    required=True, type=str)
 parser.add_argument('--use_gradient',
                     help='if passed, the program will used sgd optimization',
                     action="store_true")
