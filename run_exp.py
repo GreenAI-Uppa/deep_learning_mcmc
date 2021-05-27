@@ -72,13 +72,16 @@ output_size = 10
 model = nets.One_layer(input_size, output_size, act='relu')
 results = {}
 for t in range(epochs):
-    print(f"Epoch {t+1}\n-------------------------------")
+    print(f"Epoch {t+1} is running\n-------------------------------")
     if use_gradient:
         optimizers.train_1_epoch(train_dataloader, model, loss_fn, lr = lr)
     else:
         acceptance_ratio = optimizers.train_1_epoch(train_dataloader, model, loss_fn, student=st, lamb=lamb, iter_mcmc=iter_mcmc)
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
-    print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+    if use_gradient:
+        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+    else:
+        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n Acceptance ratio: {acceptance_ratio:>2f}")
     results[t] = {}
     if not use_gradient:
         results[t]['accept_ratio'] = acceptance_ratio
