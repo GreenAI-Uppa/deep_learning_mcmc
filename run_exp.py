@@ -19,13 +19,13 @@ parser.add_argument('--student_variance',
                     default=0.001, type=float)
 parser.add_argument('--epochs',
                     help='number of epochs : pass all the data in the training loop (in the case of mcmc, each data is used iter_mcmc iterations)',
-                    default=64, type=int)
+                    default=1000, type=int)
 parser.add_argument('--iter_mcmc',
                     help='number of iterations for the mcmc algorithm',
-                    default=50, type=int)
+                    default=500, type=int)
 parser.add_argument('--lambda', dest='lamb',
-                    help='value for the lambda parameter which is a tradeoff between the data and the student regularisation prior',
-                    default=1000000, type=float)
+                    help='value for the lambda parameter which is a tradeoff between the data and the student regularisation prior, the higher the less important is the prior',
+                    default=10000000, type=float)
 parser.add_argument('--exp_name', dest='exp_name',
                     help='basename for the json file in which the accuracy and the loss will be recorded',
                     default='results', type=str)
@@ -82,6 +82,7 @@ for t in range(epochs):
     results[t] = {}
     if not use_gradient:
         results[t]['accept_ratio'] = acceptance_ratio
+        print('accept ratio:', acceptance_ratio)
     results[t]['train'] = {'training loss' : loss, 'training accuracy' : accuracy }
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
