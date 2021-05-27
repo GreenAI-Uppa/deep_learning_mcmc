@@ -13,7 +13,7 @@ pip install torch
 Train the model on cifar-10 with mcmc (run --help for additional arguments)
 
 ```
-python exp_mini_batch.py --exp_name mcmc_full_batch
+python run_exp.py --exp_name mcmc_full_batch
 ```
 This command will generate a json file containing the loss and the accuracy for the different epochs. 
 To visualise the curves, use: 
@@ -25,5 +25,5 @@ python plot_curve.py exp_name_1000000_999.json
 Train the model with **gradient descent** for comparison purposes
 
 ```
-python exp_mini_batch.py --batch_size 64 --use_gradient
+python run_exp.py --batch_size 64 --use_gradient
 ```
