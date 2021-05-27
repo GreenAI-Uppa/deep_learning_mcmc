@@ -23,9 +23,9 @@ class One_layer(nn.Module):
         return logits
 
 class Two_layer(nn.Module):
-    def __init__(self, input_size, output_size, act='relu'):
+    def __init__(self, input_size, hidden_size, output_size, act='relu'):
         super(Two_layer, self).__init__()
-        self.hidden_size = 100
+        self.hidden_size = hidden_size
         self.flatten = nn.Flatten()
         self.linear1 = nn.Linear(input_size, self.hidden_size)
         self.linear2 = nn.Linear(self.hidden_size, output_size)
