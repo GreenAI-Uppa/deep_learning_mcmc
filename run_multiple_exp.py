@@ -14,8 +14,11 @@ parser.add_argument('--batch_size',
 parser.add_argument('--lr',
                     help='learning rate for the gradient optimization',
                     default=0.001, type=float)
-parser.add_argument('--student_variance',
-                    help='Variance of the student law used to generate proposal within the mcmc and as a prior on the network parameters',
+parser.add_argument('--student_variance_prop',
+                    help='Variance of the student law used to generate proposal within the mcmc',
+                    default=0.001, type=float)
+parser.add_argument('--student_variance_prior',
+                    help='Variance of the student law used as a prior on the network parameters',
                     default=0.001, type=float)
 parser.add_argument('--epochs',
                     help='number of epochs : pass all the data in the training loop (in the case of mcmc, each data is used iter_mcmc iterations)',
@@ -25,7 +28,7 @@ parser.add_argument('--iter_mcmc',
                     default=50, type=int)
 parser.add_argument('--lambda', dest='lamb',
                     help='value for the lambda parameter which is a tradeoff between the data and the student regularisation prior',
-                    default=1000000, type=float)
+                    default=10000, type=float)
 parser.add_argument('--exp_name', dest='exp_name',
                     help='basename for the json file in which the accuracy and the loss will be recorded',
                     default='results', type=str)
@@ -56,8 +59,10 @@ test_data = datasets.CIFAR10(root=args.data_folder,
 
 batch_size = args.batch_size 
 lr = args.lr #0.001 # learning rate for the gradient descent
-student_variance = args.student_variance #0.00000000001 # variance for the student distribution
-st = stats.Student(student_variance, 0)
+student_variance_prop = args.student_variance_prop #0.00000000001 # variance for the student distribution
+student_variance_prior = args.student_variance_prior #0.00000000001 # variance for the student distribution
+st_prop = stats.Student(student_variance_prop, 0)
+st_prior = stats.Student(student_variance_prior, 0)
 loss_fn = nets.my_mse_loss
 iter_mcmc = args.iter_mcmc #50
 epochs = args.epochs #1000
@@ -85,12 +90,15 @@ for i in range(num_xp):
         if use_gradient:
             optimizers.train_1_epoch(train_dataloader, model, loss_fn, lr = lr)
         else:
-            acceptance_ratio = optimizers.train_1_epoch(train_dataloader, model, loss_fn, student=st, lamb=lamb, iter_mcmc=iter_mcmc)
+            acceptance_ratio = optimizers.train_1_epoch(train_dataloader, model, loss_fn, proposal=st_prop, prior=st_prior, lamb=lamb, iter_mcmc=iter_mcmc)
         loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
-        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
         results[t] = {}
         if not use_gradient:
+            print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n Acceptance ratio: {acceptance_ratio:>2f}\n")
             results[t]['accept_ratio'] = acceptance_ratio
+        else:
+            print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+
         results[t]['train'] = {'training loss' : loss, 'training accuracy' : accuracy }
         loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
         print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
