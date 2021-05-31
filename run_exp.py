@@ -77,7 +77,7 @@ for t in range(epochs):
         optimizers.train_1_epoch(train_dataloader, model, loss_fn, lr = lr)
     else:
         acceptance_ratio = optimizers.train_1_epoch(train_dataloader, model, loss_fn, student=st, lamb=lamb, iter_mcmc=iter_mcmc)
-    loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
+    loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     if use_gradient:
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     else:
@@ -86,7 +86,7 @@ for t in range(epochs):
     if not use_gradient:
         results[t]['accept_ratio'] = acceptance_ratio
     results[t]['train'] = {'training loss' : loss, 'training accuracy' : accuracy }
-    loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
+    loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy }
     if use_gradient:
