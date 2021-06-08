@@ -47,9 +47,8 @@ class Two_layer(nn.Module):
 
 
 
-loss = nn.MSELoss()
+mse_loss = nn.MSELoss()
 def my_mse_loss(x,y):
-    mse_loss = nn.MSELoss() 
     y = y.reshape((y.shape[0],1))
     y_onehot = torch.FloatTensor(x.shape[0], x.shape[1])
     y_onehot.zero_() 

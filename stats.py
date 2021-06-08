@@ -61,7 +61,7 @@ class Student(object):
         d = 1. * Num / Denom
         return d
 
-    def get_ratio(self, epsilon, params):
+    def get_ratio(self, epsilon, params, do_mul=True):
       """
       compute the likelihood ratio of two variables 
                student(params[i] + epsilon[i])
@@ -78,4 +78,9 @@ class Student(object):
       num = self.t_distribution_fast(params_tilde)
 
       ratio = num / den
-      return functools.reduce(mul, ratio, 1), params_tilde
+      if not do_mul:
+          return ratio, params_tilde
+      if len(ratio.shape) == 0:
+          return ratio, params_tilde
+      else:
+          return functools.reduce(mul, ratio, 1), params_tilde

@@ -56,7 +56,7 @@ def train_1_epoch_small_nei(dataloader, model, loss_fn, **kwargs):
     for batch, (X, y) in enumerate(dataloader):
         if 'iter_mcmc' in kwargs:
             iter_mcmc, lamb, proposal, prior= kwargs['iter_mcmc'], kwargs['lamb'], kwargs['proposal'], kwargs['prior']
-            acceptance_ratio += mcmc_small_nei(X, y, model, loss_fn, proposal, prior=prior, lamb=lamb, iter_mcmc=iter_mcmc)
+            acceptance_ratio += mcmc_appr(X, y, model, loss_fn, proposal, prior=prior, lamb=lamb, iter_mcmc=iter_mcmc)
         else:
             lr = kwargs['lr']
             gradient(X, y, model, loss_fn, lr=lr)
@@ -64,6 +64,73 @@ def train_1_epoch_small_nei(dataloader, model, loss_fn, **kwargs):
         return acceptance_ratio / (batch+1)
     else:
         return 0
+
+def mcmc_appr(X, y, model, loss_fn, proposal, prior=None, lamb=1000000, iter_mcmc=50):
+    """
+    perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
+
+    the acceptance of the proposal depends on the following criterion
+       exp(lamb * (loss_previous - loss_prop) ) * stud(params_prop) / stud(params_previous)
+
+    inputs:
+    X : input data
+    y : input labels
+    model : neural net we want to optimize
+    loss_fn : loss function
+    st : zero centered univariate student law class used to generate the proposals and as a prior on the parameter values
+    lamb : ponderation between the data and the prior
+    iter_mcmc : number of mcmc iterations
+
+    outputs:
+    acceptance_ratio
+    model : optimised model (modified by reference)
+    """
+    n_outputs, n_inputs = model.linear.weight.data.shape
+    num_param = n_inputs * n_outputs + n_outputs # linear layer : inputs x outputs + bias weights 
+    batch_size = X.shape[0]
+    if prior is None:
+        prior = proposal
+
+    # getting the current value of the loss
+    pred = model(X)
+    loss_prev = loss_fn(pred.double(),y).item()
+
+    # sampling the proposals
+    epsilon = torch.tensor(proposal.sample(num_param).astype('float32')).reshape(n_outputs, n_inputs+1)
+    eps_matrix = epsilon.reshape(1, n_outputs, n_inputs+1).repeat(batch_size, 1, 1) # minibatch_size x output_size x (input_size+1)
+
+    # getting the predictions for these proposals
+    X_mat = model.flatten(X).reshape(batch_size, 1, n_inputs) # minibatch_size x input_size
+    X_mat = X_mat.repeat(1, n_outputs, 1) # minibatch_size x output_size x input_size
+    eps_matrix[:,:,:-1] *= X_mat
+    eps_matrix = model.flatten(eps_matrix).reshape(batch_size, 1, (n_outputs* (n_inputs+1))) # minibatch_size x (output_size x (input_size+1))
+    eps_matrix = eps_matrix.repeat(1,10,1) # minibatch_size x output_size x (output_size x (input_size+1))
+    pred_mat = pred.reshape(batch_size, n_outputs, 1).repeat(1, 1, num_param) # minibatch x output_size x (output_size x (input_size+1))
+    pred_mat += eps_matrix
+
+    # converting to one hot
+    y = y.reshape((y.shape[0],1))
+    y_mat = torch.FloatTensor(y.shape[0], n_outputs)
+    y_mat.zero_()
+    y_mat.scatter_(1, y, 1)
+
+    # reshaping the ground truth so that is matches the prediction
+    y_mat = y_mat.reshape(batch_size, n_outputs, 1).repeat(1,1,num_param)
+    # computing the loss
+    losses = ((pred_mat.double() - y_mat.double())**2).mean(dim=[0,1]) # 1 x num_params
+    # the delta of the loss
+    data_terms = torch.exp(lamb * (loss_prev - losses)).reshape(n_outputs, n_inputs+1) # output_size X (input_size+1)
+    # TODO check that loss_prev and losses are computed in the same way
+    student_ratios, params_prop = prior.get_ratio(epsilon, torch.cat((model.linear.weight.data,model.linear.bias.data.reshape(n_outputs,1)), dim=1), do_mul=False) # (output_size X (input_size+1))
+    rho = data_terms * student_ratios
+    accepted_changes = rho > torch.rand(n_outputs,n_inputs+1) # torch.rand(1)
+    model.linear.weight.data[accepted_changes[:,:-1]] = params_prop[:,:-1][accepted_changes[:,:-1]]
+    model.linear.bias.data[accepted_changes[:,-1]] = params_prop[:,-1][accepted_changes[:,-1]]
+    pred = model(X)
+    loss_prev = loss_fn(pred,y).item()
+    acceptance_ratio = float(accepted_changes.sum() / float(num_param))
+    return acceptance_ratio
+
 
 def mcmc_small_nei(X, y, model, loss_fn, proposal, prior=None, lamb=1000000, iter_mcmc=50):
     """
