@@ -10,13 +10,13 @@ import argparse
 parser = argparse.ArgumentParser(description='Train a model on cifar10 with either mcmc or stochastic gradient based approach')
 parser.add_argument('--batch_size',
                     help='batch size',
-                    default=50000, type=int)
+                    default=64, type=int)
 parser.add_argument('--lr',
                     help='learning rate for the gradient optimization',
                     default=0.001, type=float)
 parser.add_argument('--student_variance',
                     help='Variance of the student law used to generate proposal within the mcmc and as a prior on the network parameters',
-                    default=0.001, type=float)
+                    default=0.00000000001, type=float)
 parser.add_argument('--epochs',
                     help='number of epochs : pass all the data in the training loop (in the case of mcmc, each data is used iter_mcmc iterations)',
                     default=64, type=int)
@@ -52,6 +52,7 @@ batch_size = args.batch_size
 lr = args.lr #0.001 # learning rate for the gradient descent
 student_variance = args.student_variance #0.00000000001 # variance for the student distribution
 st = stats.Student(student_variance, 0)
+st_prior = stats.Student(student_variance, 0)
 loss_fn = nets.my_mse_loss
 iter_mcmc = args.iter_mcmc #50
 epochs = args.epochs #1000
@@ -76,7 +77,7 @@ for t in range(epochs):
     if use_gradient:
         optimizers.train_1_epoch(train_dataloader, model, loss_fn, lr = lr)
     else:
-        acceptance_ratio = optimizers.train_1_epoch(train_dataloader, model, loss_fn, student=st, lamb=lamb, iter_mcmc=iter_mcmc)
+        acceptance_ratio = optimizers.train_1_epoch_small_nei(train_dataloader, model, loss_fn, proposal=st, prior=st_prior, lamb=lamb, iter_mcmc=iter_mcmc)
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     if use_gradient:
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")

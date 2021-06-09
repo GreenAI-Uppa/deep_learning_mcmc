@@ -103,10 +103,12 @@ def mcmc_appr(X, y, model, loss_fn, proposal, prior=None, lamb=1000000, iter_mcm
     X_mat = model.flatten(X).reshape(batch_size, 1, n_inputs) # minibatch_size x input_size
     X_mat = X_mat.repeat(1, n_outputs, 1) # minibatch_size x output_size x input_size
     eps_matrix[:,:,:-1] *= X_mat
-    eps_matrix = model.flatten(eps_matrix).reshape(batch_size, 1, (n_outputs* (n_inputs+1))) # minibatch_size x (output_size x (input_size+1))
-    eps_matrix = eps_matrix.repeat(1,10,1) # minibatch_size x output_size x (output_size x (input_size+1))
+    eps_matrix = model.flatten(eps_matrix) #.reshape(batch_size, 1, (n_outputs* (n_inputs+1))) # minibatch_size x (output_size x (input_size+1))
+    eps_matrix_ = torch.zeros(batch_size, 10, (n_outputs* (n_inputs+1)))
+    for i in range(n_outputs):
+        eps_matrix_[:,i,i*(n_inputs+1):(i+1)*(n_inputs+1)] = eps_matrix[:,i*(n_inputs+1):(i+1)*(n_inputs+1)]
     pred_mat = pred.reshape(batch_size, n_outputs, 1).repeat(1, 1, num_param) # minibatch x output_size x (output_size x (input_size+1))
-    pred_mat += eps_matrix
+    pred_mat += eps_matrix_
 
     # converting to one hot
     y = y.reshape((y.shape[0],1))
