@@ -67,17 +67,22 @@ def train_1_epoch_small_nei(dataloader, model, loss_fn, **kwargs):
 
 def mcmc_appr(X, y, model, loss_fn, proposal, prior=None, lamb=1000000, iter_mcmc=50):
     """
-    perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
+    perform one approximate mcmc iteration
+
+    We generate an epsilon proposal for each parameter, and compute the acceptance ratio for each of these proposals indepedantly. 
+
+    So we are dealing with a batch_size X n_outputs X num_parameters matrix. It is not safe to use large batch sizes.
 
     the acceptance of the proposal depends on the following criterion
-       exp(lamb * (loss_previous - loss_prop) ) * stud(params_prop) / stud(params_previous)
+       exp(lamb * (loss_previous - loss_prop) ) * prior(params_prop) / prior(params_previous)
 
     inputs:
     X : input data
     y : input labels
     model : neural net we want to optimize
     loss_fn : loss function
-    st : zero centered univariate student law class used to generate the proposals and as a prior on the parameter values
+    proposal : zero centered univariate student law class used to generate the proposals 
+    prior : prior on the parameter values
     lamb : ponderation between the data and the prior
     iter_mcmc : number of mcmc iterations
 
@@ -102,13 +107,23 @@ def mcmc_appr(X, y, model, loss_fn, proposal, prior=None, lamb=1000000, iter_mcm
     # getting the predictions for these proposals
     X_mat = model.flatten(X).reshape(batch_size, 1, n_inputs) # minibatch_size x input_size
     X_mat = X_mat.repeat(1, n_outputs, 1) # minibatch_size x output_size x input_size
+
+    # this corresponds will be added to the prediction 
+    # pred_i = pred_hat_i + eps_ij * xj if eps_ij is not a bias parameter
+    # pred_i = pred_hat_i + eps_ij if eps_ij is a bias parameter
     eps_matrix[:,:,:-1] *= X_mat
+
+    # now we need to reshape and build the matrix so that we can just perform adding to prediction matrix
     eps_matrix = model.flatten(eps_matrix) #.reshape(batch_size, 1, (n_outputs* (n_inputs+1))) # minibatch_size x (output_size x (input_size+1))
     eps_matrix_ = torch.zeros(batch_size, 10, (n_outputs* (n_inputs+1)))
     for i in range(n_outputs):
         eps_matrix_[:,i,i*(n_inputs+1):(i+1)*(n_inputs+1)] = eps_matrix[:,i*(n_inputs+1):(i+1)*(n_inputs+1)]
+    # reshaping as well the prediction matrix.
     pred_mat = pred.reshape(batch_size, n_outputs, 1).repeat(1, 1, num_param) # minibatch x output_size x (output_size x (input_size+1))
+
+    # adding 
     pred_mat += eps_matrix_
+    pred_mat[pred_mat<0] = 0 # performing relu
 
     # converting to one hot
     y = y.reshape((y.shape[0],1))
@@ -122,7 +137,6 @@ def mcmc_appr(X, y, model, loss_fn, proposal, prior=None, lamb=1000000, iter_mcm
     losses = ((pred_mat.double() - y_mat.double())**2).mean(dim=[0,1]) # 1 x num_params
     # the delta of the loss
     data_terms = torch.exp(lamb * (loss_prev - losses)).reshape(n_outputs, n_inputs+1) # output_size X (input_size+1)
-    # TODO check that loss_prev and losses are computed in the same way
     student_ratios, params_prop = prior.get_ratio(epsilon, torch.cat((model.linear.weight.data,model.linear.bias.data.reshape(n_outputs,1)), dim=1), do_mul=False) # (output_size X (input_size+1))
     rho = data_terms * student_ratios
     accepted_changes = rho > torch.rand(n_outputs,n_inputs+1) # torch.rand(1)
