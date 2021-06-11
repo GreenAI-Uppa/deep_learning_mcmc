@@ -14,7 +14,7 @@ class MLP(nn.Module):
         self.flatten = nn.Flatten()
         input_size = sizes[0]
         output_size = sizes[-1]
-        self.linears = []
+        self.linears = nn.ModuleList()
         for i in range(1, len(sizes)):
             self.linears.append(nn.Linear(sizes[i-1], sizes[i]))
         if act == 'soft':
@@ -29,16 +29,16 @@ class MLP(nn.Module):
     def forward(self, x):
         x = self.flatten(x)
         for linear in self.linears:
-            x = self.linear(x)
+            x = linear(x)
             x = self.activation(x)
-        return x 
+        return x
 
 loss = nn.MSELoss()
 def my_mse_loss(x,y):
-    mse_loss = nn.MSELoss() 
+    mse_loss = nn.MSELoss()
     y = y.reshape((y.shape[0],1))
     y_onehot = torch.FloatTensor(x.shape[0], x.shape[1])
-    y_onehot.zero_() 
+    y_onehot.zero_()
     y_onehot.scatter_(1, y, 1)
     return mse_loss(x, y_onehot)
 
@@ -54,20 +54,6 @@ def evaluate(dataloader, model, loss_fn):
     test_loss /= size
     correct /= size
     return test_loss, correct
-
-"""
-def evaluate(dataloader, model, loss_fn):
-    size = len(dataloader.dataset)
-    test_loss, correct = 0, 0
-    with torch.no_grad():
-        for X, y in dataloader:
-            corr, test_l = eval_(X, y, model, loss_fn)
-            test_loss += test_l
-            correct += corr
-    test_loss /= size
-    correct /= size
-    return test_loss, correct
-"""
 
 def eval_(X, y, model, loss_fn):
     with torch.no_grad():
