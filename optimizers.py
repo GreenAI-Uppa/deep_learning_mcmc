@@ -46,8 +46,8 @@ def train_1_epoch(dataloader, model, loss_fn, **kwargs):
         y = y[:min(quota - num_items_read, X.shape[0])]
         num_items_read = min(quota, num_items_read + X.shape[0])
         if 'iter_mcmc' in kwargs:
-            iter_mcmc, lamb, st = kwargs['iter_mcmc'], kwargs['lamb'], kwargs['student']
-            acceptance_ratio += mcmc(X, y, model, loss_fn, st, lamb=lamb, iter_mcmc=iter_mcmc)
+            iter_mcmc, lamb, proposal, prior= kwargs['iter_mcmc'], kwargs['lamb'], kwargs['proposal'], kwargs['prior']
+            acceptance_ratio += mcmc(X, y, model, loss_fn, proposal, lamb=lamb, iter_mcmc=iter_mcmc)
         else:
             lr = kwargs['lr']
             gradient(X, y, model, loss_fn, lr=lr)
