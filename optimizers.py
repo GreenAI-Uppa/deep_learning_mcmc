@@ -28,16 +28,26 @@ def gradient_line(X, y, model, loss_fn):
         model.linear.weight.data[idx_row] -= gg[0][idx_row] * lr 
         model.linear.bias.data[idx_row] -= gg[1][idx_row] * lr
 
-def train_1_epoch(dataloader, model, loss_fn, **kwargs): 
+def train_1_epoch(dataloader, model, loss_fn, **kwargs):
     """
     either gradient or mcmc are used, depending on the arguments in kwargs
     """
     if 'iter_mcmc' in kwargs:
         acceptance_ratio = 0.
+    num_items_read = 0
+    if 'quota' in kwargs:
+        quota = kwargs['quota']
+    else:
+        quota = 10000000000000
     for batch, (X, y) in enumerate(dataloader):
+        if quota <= num_items_read:
+            break
+        X = X[:min(quota - num_items_read, X.shape[0])]
+        y = y[:min(quota - num_items_read, X.shape[0])]
+        num_items_read = min(quota, num_items_read + X.shape[0])
         if 'iter_mcmc' in kwargs:
-            iter_mcmc, lamb, proposal, prior= kwargs['iter_mcmc'], kwargs['lamb'], kwargs['proposal'], kwargs['prior']
-            acceptance_ratio += mcmc_small(X, y, model, loss_fn, proposal, prior=prior, lamb=lamb, iter_mcmc=iter_mcmc)
+            iter_mcmc, lamb, st = kwargs['iter_mcmc'], kwargs['lamb'], kwargs['student']
+            acceptance_ratio += mcmc(X, y, model, loss_fn, st, lamb=lamb, iter_mcmc=iter_mcmc)
         else:
             lr = kwargs['lr']
             gradient(X, y, model, loss_fn, lr=lr)

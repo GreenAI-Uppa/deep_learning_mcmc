@@ -1,11 +1,22 @@
 from torch import nn
 import torch
 
-class One_layer(nn.Module):
-    def __init__(self, input_size, output_size, act='relu'):
-        super(One_layer, self).__init__()
+class MLP(nn.Module):
+    def __init__(self, sizes, act='relu'):
+        """
+        builds a multi layer perceptron
+        sizes : list of the size of the different layers
+        act : activation function either "relu", "elu", or "soft" (softmax)
+        """
+        if len(sizes)< 2:
+            raise Exception("sizes argument is" +  sizes.__str__() + ' . At least two elements are needed to have the input and output sizes')
+        super(MLP, self).__init__()
         self.flatten = nn.Flatten()
-        self.linear = nn.Linear(input_size, output_size)
+        input_size = sizes[0]
+        output_size = sizes[-1]
+        self.linears = []
+        for i in range(1, len(sizes)):
+            self.linears.append(nn.Linear(sizes[i-1], sizes[i]))
         if act == 'soft':
             print('using softmax activation')
             self.activation = nn.Softmax()
@@ -14,38 +25,13 @@ class One_layer(nn.Module):
             self.activation = nn.ELU()
         else:
             self.activation = nn.ReLU()
-        self.soft_input = []
 
     def forward(self, x):
         x = self.flatten(x)
-        self.soft_input = self.linear(x)
-        logits = self.activation(self.soft_input)
-        return logits
-
-class Two_layer(nn.Module):
-    def __init__(self, input_size, output_size, act='relu'):
-        super(Two_layer, self).__init__()
-        self.hidden_size = 100
-        self.flatten = nn.Flatten()
-        self.linear1 = nn.Linear(input_size, self.hidden_size)
-        self.linear2 = nn.Linear(self.hidden_size, output_size)
-        if act == 'soft':
-            print('using softmax activation')
-            self.activation = nn.Softmax()
-        elif act =='elu':
-            print('using rely activation')
-            self.activation = nn.ELU()
-        else:
-            self.activation = nn.ReLU()
-        self.soft_input = []
-
-    def forward(self, x):
-        x = self.flatten(x)
-        self.soft_input = self.linear(x)
-        logits = self.activation(self.soft_input)
-        return logits
-
-
+        for linear in self.linears:
+            x = self.linear(x)
+            x = self.activation(x)
+        return x 
 
 loss = nn.MSELoss()
 def my_mse_loss(x,y):

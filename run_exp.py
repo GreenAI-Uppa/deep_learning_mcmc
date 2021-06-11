@@ -35,9 +35,11 @@ parser.add_argument('--data_folder',
 parser.add_argument('--use_gradient',
                     help='if passed, the program will used sgd optimization',
                     action="store_true")
+parser.add_argument('--max_data_points',
+                    help='maximum number of data points used',
+                    default=None, type=int)
 
 args = parser.parse_args()
-
 training_data = datasets.CIFAR10(root=args.data_folder,
     train=True,
     download=True,
@@ -58,12 +60,14 @@ epochs = args.epochs #1000
 lamb = args.lamb #1000000 
 exp_name=args.exp_name
 use_gradient = args.use_gradient
+max_data_points = args.max_data_points
 
 if use_gradient and batch_size > 1000:
     print("!!!!!!!!!!!!!!!!!!!!!!")
     print("WARNING, you are using SGD and the batch size is ", batch_size)
     print("This might be too high, consider the option --batch_size 64")
     print()
+
 train_dataloader = DataLoader(training_data, batch_size=batch_size)
 test_dataloader = DataLoader(test_data, batch_size=batch_size)
 
