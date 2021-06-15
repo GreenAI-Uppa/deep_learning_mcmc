@@ -37,16 +37,19 @@ loss = nn.MSELoss()
 def my_mse_loss(x,y):
     mse_loss = nn.MSELoss()
     y = y.reshape((y.shape[0],1))
-    y_onehot = torch.FloatTensor(x.shape[0], x.shape[1])
+    y_onehot = torch.FloatTensor(x.shape[0], x.shape[1]).to(y.device)
     y_onehot.zero_()
     y_onehot.scatter_(1, y, 1)
     return mse_loss(x, y_onehot)
 
 def evaluate(dataloader, model, loss_fn):
+    device = next(model.parameters()).device
     size = len(dataloader.dataset)
     test_loss, correct = 0, 0
     with torch.no_grad():
         for X, y in dataloader:
+            X = X.to(device)
+            y = y.to(device)
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()

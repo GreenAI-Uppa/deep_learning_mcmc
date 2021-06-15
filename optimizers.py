@@ -31,12 +31,16 @@ class Optimizer(ABC):
 
     def train_1_epoch(self, dataloader, model, loss_fn):
         num_items_read = 0
+        # attempting to guess the device on the model. 
+        device = next(model.parameters()).device
         for batch, (X, y) in enumerate(dataloader):
             if self.data_points_max <= num_items_read:
                 break
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
             y = y[:min(self.data_points_max - num_items_read, X.shape[0])]
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
+            X = X.to(device)
+            y = y.to(device)
             self.train_1_batch(X, y, model, loss_fn)
 
     @abstractmethod
@@ -58,7 +62,6 @@ class GradientOptimizer(Optimizer):
         pred = model(X)
         los = loss_fn(pred, y)
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
-        import pdb; pdb.set_trace()
         for i, layer in enumerate(model.linears):
             layer.weight.data -=  gg[2*i] * self.lr
             layer.bias.data -=  gg[2*i+1] * self.lr

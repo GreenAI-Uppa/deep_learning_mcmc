@@ -1,3 +1,4 @@
+import time
 from torchvision import datasets
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
@@ -38,12 +39,17 @@ parser.add_argument('--hidden_size',
 parser.add_argument('--data_folder',
                     help='absolute path toward the data folder which contains the cifar10 dataset. Pytorch will download it if it does not exist',
                     required=True, type=str)
-parser.add_argument('--use_gradient',
-                    help='if passed, the program will used sgd optimization',
-                    action="store_true")
+parser.add_argument('--optimizer',
+                    help='"grad or mcmc"',
+                    default="mcmc", type=str)
 parser.add_argument('--max_data_points',
                     help='maximum number of data points used',
                     default=None, type=int)
+parser.add_argument('--config_file',
+                    help='json file containing various setups (learning rate, mcmc iterations, variance of the priors and the proposal, batch size,...)',
+                    default=None, type=str)
+
+
 
 args = parser.parse_args()
 training_data = datasets.CIFAR10(root=args.data_folder,
@@ -57,31 +63,23 @@ test_data = datasets.CIFAR10(root=args.data_folder,
     transform=ToTensor())
 
 params = vars(args)
-
-"""
-batch_size = args.batch_size
-lr = args.lr #0.001 # learning rate for the gradient descent
-st_prior = stats.Student(args.student_variance_prior, 0)
-st_prop = stats.Student(args.student_variance_prop, 0)
-loss_fn = nets.my_mse_loss
-iter_mcmc = args.iter_mcmc #50
-epochs = args.epochs #1000
-lamb = args.lamb #1000000
-exp_name=args.exp_name
-use_gradient = args.use_gradient
-max_data_points = args.max_data_points
-"""
+# overriding the parameters with the json file config if it exists
+if params['config_file'] is not None:
+    json_params = json.load(open(params['config_file']))
+    for k,v in json_params.items():
+        params[k] = v
 
 
+print(params)
 batch_size = params['batch_size']
-if params['use_gradient'] and params['batch_size'] > 1000:
+if params['optimizer']=='grad' and params['batch_size'] > 1000:
     print("!!!!!!!!!!!!!!!!!!!!!!")
     print("WARNING, you are using SGD and the batch size is ", batch_size)
     print("This might be too high, consider the option --batch_size 64")
     print()
 # getting the data
-train_dataloader = DataLoader(training_data, batch_size=batch_size)
-test_dataloader = DataLoader(test_data, batch_size=batch_size)
+train_dataloader = DataLoader(training_data, batch_size=batch_size, num_workers=20)
+test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=20)
 
 
 # setting the model
@@ -94,7 +92,7 @@ else:
 model = nets.MLP(layer_sizes, act='relu')
 
 # setting the optimizer
-use_gradient = params['use_gradient']
+use_gradient = params['optimizer'] == 'grad'
 if use_gradient:
     optimizer = optimizers.GradientOptimizer(lr=params['lr'])
 else:
@@ -109,26 +107,36 @@ if use_gradient:
 else:
     exp_name = exp_name+'_'+str(params['lamb'])
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+#device = 'cpu'
+print('Using {} device'.format(device))
+model = model.to(device)
+
 results = {}
 epochs = params['epochs']
 loss_fn = nets.my_mse_loss
+start_all = time.time()
 for t in range(epochs):
-    print(f"Epoch {t+1} is running\n-------------------------------")
+    start_epoch = time.time()
+    print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
     if use_gradient:
         optimizer.train_1_epoch(train_dataloader, model, loss_fn)
     else:
         acceptance_ratio = optimizers.train_1_epoch(train_dataloader, model, loss_fn, optimizer)
+    results[t] = {}
+    end_epoch = time.time() 
+    results[t]['training time'] = time.time() - start_epoch
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     if use_gradient:
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     else:
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n Acceptance ratio: {acceptance_ratio:>2f}")
-    results[t] = {}
     if not use_gradient:
         results[t]['accept_ratio'] = acceptance_ratio
     results[t]['train'] = {'training loss' : loss, 'training accuracy' : accuracy }
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy }
+    results[t]['training time'] = time.time() - end_epoch 
     json.dump(results, open(exp_name+'.json','w'))
     torch.save(model, exp_name+'.th')
