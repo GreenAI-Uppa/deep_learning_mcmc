@@ -1,7 +1,7 @@
 # Deep learning by MCMC
 
 
-This repo is a work in progress to provide the code to optimize a linear model with Markov Chain Monte Carlo Optimization
+This repo is a work in progress to provide the code to optimize of neurel networks with Markov Chain Monte Carlo Optimization
 
 
  Installation
