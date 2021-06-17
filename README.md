@@ -22,14 +22,16 @@ To visualise the curves, use:
 python plot_curve.py exp_name_1000000_999.json
 ```
 
+You can also use the json config file, this will override the arguments given from the command line
+
+```
+python run_exp.py --data_folder /location/of/cyfar --config_file config_mcmc_1_layer.json
+```
+
+
 Train the model with **gradient descent** for comparison purposes
 
 ```
 python run_exp.py --batch_size 64 --use_gradient --data_folder /location/of/cyfar
 ```
 
-You can also use the json config file, this will override the arguments given from the command line
-
-```
-python run_exp.py --data_folder /location/of/cyfar --config_file config_gradient_2_layer.json 
-```
