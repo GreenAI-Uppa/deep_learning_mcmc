@@ -8,7 +8,7 @@ class Student(object):
     """
     univariate student distribution
     """
-    def __init__(self, s, m, df=1):
+    def __init__(self, s, m=0, df=1):
         """
         s : variance
         m : mean

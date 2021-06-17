@@ -67,18 +67,21 @@ class GradientOptimizer(Optimizer):
             layer.bias.data -=  gg[2*i+1] * self.lr
 
 class MCMCOptimizer(Optimizer):
-    def __init__(self, data_points_max = 1000000000, iter_mcmc=1, lamb=1000, variance_prop=0.001, variance_prior=0.001):
+    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None):
         """
         variance_prop : zero centered univariate student law class to generate the proposals
         variance_prior : zero centered univariate student law class used as a prior on the parameter values
         lamb : ponderation between the data and the prior
         iter_mcmc : number of mcmc iterations
         """
-        super(Optimizer, self).__init__(data_points_max = 1000000000)
+        super(MCMCOptimizer, self).__init__(data_points_max = 1000000000)
         self.iter_mcmc = iter_mcmc
         self.lamb = lamb
-        self.variance_prior = variance_prior
-        self.variance_prop = variance_prop
+        self.sampler = sampler
+        if prior is None:
+            self.prior = self.sampler
+        else:
+            self.prior = prior
 
     def train_1_epoch(self, dataloader, model, loss_fn, optimizer, **kwargs):
         """
@@ -92,7 +95,7 @@ class MCMCOptimizer(Optimizer):
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
             y = y[:min(self.data_points_max - num_items_read, X.shape[0])]
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
-            acceptance_ratio = self.train_1_batch(X, y, model, loss_n)
+            acceptance_ratio = self.train_1_batch(X, y, model, loss_fn)
         return acceptance_ratio / (batch+1)
 
     def train_1_batch(self, X, y, model, loss_fn):
@@ -112,28 +115,28 @@ class MCMCOptimizer(Optimizer):
         acceptance_ratio
         model : optimised model (modified by reference)
         """
-        n_output = model.linear.weight.data.shape[0]
+        n_output = model.linears[0].weight.data.shape[0]
         accepts, not_accepts = 0., 0. # to keep track of the acceptance ratop
         pred = model(X)
         loss = loss_fn(pred,y).item()
-        for i in range(iter_mcmc):
+        for i in range(self.iter_mcmc):
             # selecting a line at random
             idx_row = torch.randint(0, n_output, (1,))
             # sampling a proposal for this line
-            epsilon = torch.tensor(st.sample(model.linear.weight.data[idx_row].shape[1]+1).astype('float32'))[:,0]
-            params_line = torch.cat((model.linear.weight.data[idx_row][0],model.linear.bias.data[idx_row]))
+            epsilon = torch.tensor(self.sampler.sample(model.linears[0].weight.data[idx_row].shape[1]+1).astype('float32'))[:,0]
+            params_line = torch.cat((model.linears[0].weight.data[idx_row][0],model.linears[0].bias.data[idx_row]))
 
             # getting the ratio of the students
-            student_ratio, params_tilde = st.get_ratio(epsilon, params_line)
+            student_ratio, params_tilde = self.prior.get_ratio(epsilon, params_line)
 
             # applying the changes to get the new value of the loss
-            model.linear.weight.data[idx_row] += epsilon[:-1]
-            model.linear.bias.data[idx_row] += epsilon[-1]
+            model.linears[0].weight.data[idx_row] += epsilon[:-1]
+            model.linears[0].bias.data[idx_row] += epsilon[-1]
             pred = model(X)
             loss_prop = loss_fn(pred, y)
 
             # computing the change in the loss
-            data_term = torch.exp(lamb * (loss -loss_prop))
+            data_term = torch.exp(self.lamb * (loss -loss_prop))
 
             rho  = min(1, data_term * student_ratio)
             if rho > torch.rand(1):
@@ -143,8 +146,8 @@ class MCMCOptimizer(Optimizer):
             else:
               # not accepting, so undoing the change
               not_accepts += 1
-              model.linear.weight.data[idx_row] -= epsilon[:-1]
-              model.linear.bias.data[idx_row] -= epsilon[-1]
+              model.linears[0].weight.data[idx_row] -= epsilon[:-1]
+              model.linears[0].bias.data[idx_row] -= epsilon[-1]
         acceptance_ratio = accepts / (not_accepts + accepts)
         return acceptance_ratio
 

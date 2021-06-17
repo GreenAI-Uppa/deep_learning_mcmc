@@ -97,8 +97,8 @@ if use_gradient:
     optimizer = optimizers.GradientOptimizer(lr=params['lr'])
 else:
     st_prop = stats.Student(params['student_variance_prop'])
-    st_prop = stats.Student(params['student_variance_prior'])
-    optimizer = optimizers.MCMCOptimizer(iter_mcmc=params['iter_mcmc'], lamb=params['lamb'], proposal_sampler=st_prop, prior=st_prior)
+    st_prior = stats.Student(params['student_variance_prior'])
+    optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=params['iter_mcmc'], lamb=params['lamb'], prior=st_prior)
 
 
 exp_name = params['exp_name']
@@ -122,7 +122,7 @@ for t in range(epochs):
     if use_gradient:
         optimizer.train_1_epoch(train_dataloader, model, loss_fn)
     else:
-        acceptance_ratio = optimizers.train_1_epoch(train_dataloader, model, loss_fn, optimizer)
+        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer)
     results[t] = {}
     end_epoch = time.time() 
     results[t]['training time'] = time.time() - start_epoch
