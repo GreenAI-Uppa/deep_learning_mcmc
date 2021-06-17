@@ -5,7 +5,7 @@ from torchvision.transforms import ToTensor
 import json
 import torch
 import numpy as np, math
-import nets, optimizers, stats
+from deep_learning_mcmc import nets, optimizers, stats
 import argparse
 
 parser = argparse.ArgumentParser(description='Train a model on cifar10 with either mcmc or stochastic gradient based approach')
