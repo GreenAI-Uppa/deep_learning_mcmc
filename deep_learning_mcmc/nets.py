@@ -61,12 +61,12 @@ def evaluate(dataloader, model, loss_fn):
 
 
 def evaluate_sparse(dataloader, model, loss_fn, threshold):
-        """
-        evaluate a sparse version of MLP model
-        dataloader, model, and loss_fn : see evaluate function
-        threshold : values of the threshold in the weights matrix associated to the first layer of the MLP (not apply to the bias term)
-        Return loss, acccuracy and the percentage of values kept after threshold in the first layer
-        """
+    """
+    evaluate a sparse version of a linear model
+    dataloader, model, and loss_fn : see evaluate function
+    threshold : values of the threshold in the weights matrix associated to the first layer of the MLP (not apply to the bias term)
+    Return loss, acccuracy and the percentage of values kept after threshold in the first layer
+    """
     device = next(model.parameters()).device
     size = len(dataloader.dataset)
     test_loss, correct = 0, 0
