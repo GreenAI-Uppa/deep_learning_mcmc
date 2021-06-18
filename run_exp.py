@@ -136,7 +136,13 @@ for t in range(epochs):
     results[t]['train'] = {'training loss' : loss, 'training accuracy' : accuracy }
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
-    results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy }
+    if len(layer_sizes) == 2:
+        #sparse evaluation of the linear model
+        loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,0.01)
+        print(f"Sparse Test Error: \n Accuracy: {(100*accuracy_sparse):>0.1f}%, Avg loss: {loss_sparse:>8f}, Sparsity index: {kept:>8f} \n")
+        results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy, 'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }
+    else:
+        results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy}
     results[t]['training time'] = time.time() - end_epoch 
     json.dump(results, open(exp_name+'.json','w'))
     torch.save(model, exp_name+'.th')
