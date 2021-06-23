@@ -12,6 +12,9 @@ parser = argparse.ArgumentParser(description='Train a model on cifar10 with eith
 parser.add_argument('--batch_size',
                     help='batch size',
                     default=50000, type=int)
+parser.add_argument('--outdir',
+                    help='directory in which the results and the model will be stored',
+                    default=None, type=str)
 parser.add_argument('--lr',
                     help='learning rate for the gradient optimization',
                     default=0.001, type=float)
@@ -68,6 +71,11 @@ if params['config_file'] is not None:
     json_params = json.load(open(params['config_file']))
     for k,v in json_params.items():
         params[k] = v
+
+if params["outdir"] is None:
+    outdir = ""
+else:
+    outdir = params["outdir"]
 
 
 print(params)
@@ -143,6 +151,6 @@ for t in range(epochs):
         results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy, 'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }
     else:
         results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy}
-    results[t]['eval_time'] = time.time() - end_epoch 
-    json.dump(results, open(exp_name+'.json','w'))
-    torch.save(model, exp_name+'.th')
+    results[t]['eval_time'] = time.time() - end_epoch
+    json.dump(results, open(os.path.join(outdir, exp_name+'.json'),'w'))
+    torch.save(model, os.path.join(outdir, exp_name+'.th'))
