@@ -87,8 +87,7 @@ class MCMCOptimizer(Optimizer):
         """
         either gradient or mcmc are used, depending on the arguments in kwargs
         """
-        results = {}
-        num_items_read = 0
+        acceptance_ratio,  num_items_read, results = 0, 0, {}
         device = next(model.parameters()).device
         for batch, (X, y) in enumerate(dataloader):
             if self.data_points_max <= num_items_read:

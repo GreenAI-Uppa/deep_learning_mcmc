@@ -76,12 +76,14 @@ def evaluate_sparse(dataloader, model, loss_fn, threshold):
     m = nn.ELU()            
     with torch.no_grad():
         for X, y in dataloader:
+            X = X.to(device)
+            y = y.to(device)
             pred = model(X)
             pred_s = []
             for x in X:
                 y_pred = torch.matmul(sparse_weights,torch.flatten(x))+model.linears[0].bias.data
                 output = m(y_pred)
-                pred_s.append(np.array(output))
+                pred_s.append(np.array(output).to('cpu'))
             pred_s = torch.from_numpy(np.array(pred_s))
             test_loss += loss_fn(pred_s, y).item()
             correct += (pred_s.argmax(1) == y).type(torch.float).sum().item()
