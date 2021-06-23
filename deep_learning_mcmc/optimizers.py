@@ -31,7 +31,7 @@ class Optimizer(ABC):
 
     def train_1_epoch(self, dataloader, model, loss_fn):
         num_items_read = 0
-        # attempting to guess the device on the model. 
+        # attempting to guess the device on the model.
         device = next(model.parameters()).device
         for batch, (X, y) in enumerate(dataloader):
             if self.data_points_max <= num_items_read:
@@ -89,12 +89,15 @@ class MCMCOptimizer(Optimizer):
         """
         results = {}
         num_items_read = 0
+        device = next(model.parameters()).device
         for batch, (X, y) in enumerate(dataloader):
             if self.data_points_max <= num_items_read:
                 break
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
             y = y[:min(self.data_points_max - num_items_read, X.shape[0])]
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
+            X = X.to(device)
+            y = y.to(device)
             acceptance_ratio += self.train_1_batch(X, y, model, loss_fn)
         return acceptance_ratio / (batch+1)
 
@@ -115,6 +118,7 @@ class MCMCOptimizer(Optimizer):
         acceptance_ratio
         model : optimised model (modified by reference)
         """
+        device = next(model.parameters()).device
         n_output = model.linears[0].weight.data.shape[0]
         accepts, not_accepts = 0., 0. # to keep track of the acceptance ratop
         pred = model(X)
@@ -123,7 +127,7 @@ class MCMCOptimizer(Optimizer):
             # selecting a line at random
             idx_row = torch.randint(0, n_output, (1,))
             # sampling a proposal for this line
-            epsilon = torch.tensor(self.sampler.sample(model.linears[0].weight.data[idx_row].shape[1]+1).astype('float32'))[:,0]
+            epsilon = torch.tensor(self.sampler.sample(model.linears[0].weight.data[idx_row].shape[1]+1).astype('float32'))[:,0].to(device)
             params_line = torch.cat((model.linears[0].weight.data[idx_row][0],model.linears[0].bias.data[idx_row]))
 
             # getting the ratio of the students
@@ -139,7 +143,7 @@ class MCMCOptimizer(Optimizer):
             data_term = torch.exp(self.lamb * (loss -loss_prop))
 
             rho  = min(1, data_term * student_ratio)
-            if rho > torch.rand(1):
+            if rho > torch.rand(1).to(device):
               # accepting, keeping the new value of the loss
               accepts += 1
               loss = loss_prop
