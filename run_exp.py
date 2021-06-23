@@ -124,7 +124,7 @@ for t in range(epochs):
     else:
         acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer)
     results[t] = {}
-    end_epoch = time.time() 
+    end_epoch = time.time()
     results[t]['training time'] = time.time() - start_epoch
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     if use_gradient:
@@ -137,6 +137,6 @@ for t in range(epochs):
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy }
-    results[t]['training time'] = time.time() - end_epoch 
+    results[t]['training time'] = time.time() - end_epoch
     json.dump(results, open(exp_name+'.json','w'))
     torch.save(model, exp_name+'.th')
