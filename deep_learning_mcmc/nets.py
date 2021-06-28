@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 class MLP(nn.Module):
-    def __init__(self, sizes, activations='relu'):
+    def __init__(self, sizes, activations='ReLU'):
         """
         builds a multi layer perceptron
         sizes : list of the size of the different layers
@@ -23,14 +23,7 @@ class MLP(nn.Module):
                 act = activations
             else:
                 act = activations[i-1]
-            if act == 'soft':
-                print('using softmax activation')
-                activation  = nn.Softmax()
-            elif act =='elu':
-                print('using relu activation')
-                activation = nn.ELU()
-            else:
-                activation = nn.ReLU()
+            activation = getattr(nn, activation_string)()
             self.activations.append(activation)
 
     def forward(self, x):
