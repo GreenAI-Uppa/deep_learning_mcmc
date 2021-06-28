@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 class MLP(nn.Module):
-    def __init__(self, sizes, act='relu'):
+    def __init__(self, sizes, activations='relu'):
         """
         builds a multi layer perceptron
         sizes : list of the size of the different layers
@@ -16,22 +16,28 @@ class MLP(nn.Module):
         input_size = sizes[0]
         output_size = sizes[-1]
         self.linears = nn.ModuleList()
+        self.activations = []
         for i in range(1, len(sizes)):
             self.linears.append(nn.Linear(sizes[i-1], sizes[i]))
-        if act == 'soft':
-            print('using softmax activation')
-            self.activation = nn.Softmax()
-        elif act =='elu':
-            print('using rely activation')
-            self.activation = nn.ELU()
-        else:
-            self.activation = nn.ReLU()
+            if isinstance(activations, str):
+                act = activations
+            else:
+                act = activations[i-1]
+            if act == 'soft':
+                print('using softmax activation')
+                activation  = nn.Softmax()
+            elif act =='elu':
+                print('using relu activation')
+                activation = nn.ELU()
+            else:
+                activation = nn.ReLU()
+            self.activations.append(activation)
 
     def forward(self, x):
         x = self.flatten(x)
-        for linear in self.linears:
+        for linear, activation in zip(self.linears, self.activations):
             x = linear(x)
-            x = self.activation(x)
+            x = activation(x)
         return x
 
 loss = nn.MSELoss()
