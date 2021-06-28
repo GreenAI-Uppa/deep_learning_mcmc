@@ -97,10 +97,13 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptance_ratio += self.train_1_batch(X, y, model, loss_fn)
+            if len(model.linears) == 1:
+                acceptance_ratio += self.mcmc_one_layer(X, y, model, loss_fn)
+            else:
+                accceptance_ratio += self.mcmc_two_layers(X, y, model, loss_fn)
         return acceptance_ratio / (batch+1)
 
-    def train_1_batch(self, X, y, model, loss_fn):
+    def mcmc_one_layer(self, X, y, model, loss_fn):
         """
         perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
 
@@ -153,6 +156,84 @@ class MCMCOptimizer(Optimizer):
               model.linears[0].bias.data[idx_row] -= epsilon[-1]
         acceptance_ratio = accepts / (not_accepts + accepts)
         return acceptance_ratio
+
+    def mcmc_two_layers(X, y, model, loss_fn):
+        """
+        perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
+
+        the acceptance of the proposal depends on the following criterion
+           exp(lamb * (loss_previous - loss_prop) ) * stud(params_prop) / stud(params_previous)
+
+        inputs:
+        X : input data
+        y : input labels
+        model : neural net we want to optimize
+        loss_fn : loss function
+        st : zero centered univariate student law class used to generate the proposals and as a prior on the parameter values
+        lamb : ponderation between the data and the prior
+        iter_mcmc : number of mcmc iterations
+
+        outputs:
+        acceptance_ratio
+        model : optimised model (modified by reference)
+        """
+        n_hidden = model.linear[0].weight.data.shape[0]
+        n_output = model.linear[1].bias.data.shape[0]
+        device = next(model.parameters()).device
+        accepts, not_accepts = 0., 0. # to keep track of the acceptance ratop
+        pred = model(X)
+        loss = loss_fn(pred,y).item()
+        for i in range(self.iter_mcmc):
+            # selecting a line at random
+            idx_hidden = torch.randint(0, n_hidden, (1,))
+            idx_output = -1
+            if torch.randint(0,int(n_hidden/n_output), (1,)) == 0:
+                idx_output = torch.randint(0,n_output, (1,))
+
+            # size of the neighboroud considered
+            if idx_output == -1:
+                num_params = model.linear[0].weight.data.shape[1] + 1 + model.linear[1].weight.data.shape[0] 
+                params_line = torch.cat((model.linear[0].weight.data[idx_hidden][0], model.linear[0].bias.data[idx_hidden], model.linear[1].weight.data[:,idx_hidden][:,0]))
+            else:
+                num_params = model.linear[0].weight.data.shape[1] + 1 + model.linear[1].weight.data.shape[0] + 1
+                params_line = torch.cat((model.linear[0].weight.data[idx_hidden][0],model.linear[0].bias.data[idx_hidden], model.linear[1].weight.data[:,idx_hidden][:,0], model.linear[1].bias.data[idx_output]))
+            # sampling a proposal for these parameters
+            epsilon = torch.tensor(self.sampler.sample(num_params).astype('float32'))[:,0].to(device)
+
+            # getting the ratio of the students
+            student_ratio, params_tilde = self.prior.get_ratio(epsilon, params_line)
+
+            # applying the changes to get the new value of the loss
+            model.linear[0].weight.data[idx_hidden] += epsilon[:model.linear[0].weight.data.shape[1]]
+            model.linear[0].bias.data[idx_hidden] += epsilon[model.linear[0].weight.data.shape[1]]
+
+            model.linear[1].weight.data[:,idx_hidden] += epsilon[model.linear[0].weight.data.shape[1]+1:model.linear[0].weight.data.shape[1]+1+n_output].reshape(n_output,1)
+            if idx_output != -1:
+                model.linear[1].bias.data[idx_output] += epsilon[-1]
+
+            pred = model(X)
+            loss_prop = loss_fn(pred, y)
+
+            # computing the change in the loss
+            data_term = torch.exp(self.lamb * (loss -loss_prop))
+
+            rho  = min(1, data_term * student_ratio)
+            if rho > torch.rand(1).to(device):
+              # accepting, keeping the new value of the loss 
+              accepts += 1
+              loss = loss_prop
+            else:
+              # not accepting, so undoing the change
+              not_accepts += 1
+              model.linear[0].weight.data[idx_hidden] -= epsilon[:model.linear[0].weight.data.shape[1]]
+              model.linear[0].bias.data[idx_hidden] -= epsilon[model.linear[0].weight.data.shape[1]]
+
+              model.linear[1].weight.data[:,idx_hidden] -= epsilon[model.linear[0].weight.data.shape[1]+1:model.linear[0].weight.data.shape[1]+1+n_output].reshape(n_output,1)
+              if idx_output != -1:
+                model.linear[1].bias.data[idx_output] -= epsilon[-1]
+        acceptance_ratio = accepts / (not_accepts + accepts)
+        return acceptance_ratio
+
 
 def mcmc_small_nei(X, y, model, loss_fn, proposal, prior=None, lamb=1000000, iter_mcmc=50):
     """
