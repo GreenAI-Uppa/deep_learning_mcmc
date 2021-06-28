@@ -23,7 +23,7 @@ class MLP(nn.Module):
                 act = activations
             else:
                 act = activations[i-1]
-            activation = getattr(nn, activation_string)()
+            activation = getattr(nn, act)()
             self.activations.append(activation)
 
     def forward(self, x):

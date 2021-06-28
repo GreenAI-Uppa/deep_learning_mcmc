@@ -97,7 +97,7 @@ if params['hidden_size'] is None:
     layer_sizes = [input_size, output_size]
 else:
     layer_sizes = [input_size, params['hidden_size'], output_size]
-model = nets.MLP(layer_sizes, act='relu')
+model = nets.MLP(layer_sizes, act='ReLU')
 
 # setting the optimizer
 use_gradient = params['optimizer'] == 'grad'
