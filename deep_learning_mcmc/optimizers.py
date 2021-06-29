@@ -97,11 +97,19 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
+            acceptance_ratio += self.train_1_batch(X, y, model, loss_fn)
             if len(model.linears) == 1:
                 acceptance_ratio += self.mcmc_one_layer(X, y, model, loss_fn)
             else:
-                accceptance_ratio += self.mcmc_two_layers(X, y, model, loss_fn)
+                acceptance_ratio += self.mcmc_two_layers(X, y, model, loss_fn)
         return acceptance_ratio / (batch+1)
+
+    def train_1_batch(self, X, y, model, loss_fn):
+        if len(model.linears) == 1:
+            acceptance_ratio += self.mcmc_one_layer(X, y, model, loss_fn)
+        else:
+            acceptance_ratio += self.mcmc_two_layers(X, y, model, loss_fn)
+        return acceptance_ratio
 
     def mcmc_one_layer(self, X, y, model, loss_fn):
         """
