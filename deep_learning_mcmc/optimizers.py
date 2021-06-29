@@ -106,9 +106,9 @@ class MCMCOptimizer(Optimizer):
 
     def train_1_batch(self, X, y, model, loss_fn):
         if len(model.linears) == 1:
-            acceptance_ratio += self.mcmc_one_layer(X, y, model, loss_fn)
+            acceptance_ratio = self.mcmc_one_layer(X, y, model, loss_fn)
         else:
-            acceptance_ratio += self.mcmc_two_layers(X, y, model, loss_fn)
+            acceptance_ratio = self.mcmc_two_layers(X, y, model, loss_fn)
         return acceptance_ratio
 
     def mcmc_one_layer(self, X, y, model, loss_fn):
