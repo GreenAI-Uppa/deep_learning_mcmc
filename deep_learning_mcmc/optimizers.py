@@ -165,7 +165,7 @@ class MCMCOptimizer(Optimizer):
         acceptance_ratio = accepts / (not_accepts + accepts)
         return acceptance_ratio
 
-    def mcmc_two_layers(X, y, model, loss_fn):
+    def mcmc_two_layers(self, X, y, model, loss_fn):
         """
         perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
 
@@ -185,8 +185,8 @@ class MCMCOptimizer(Optimizer):
         acceptance_ratio
         model : optimised model (modified by reference)
         """
-        n_hidden = model.linear[0].weight.data.shape[0]
-        n_output = model.linear[1].bias.data.shape[0]
+        n_hidden = model.linears[0].weight.data.shape[0]
+        n_output = model.linears[1].bias.data.shape[0]
         device = next(model.parameters()).device
         accepts, not_accepts = 0., 0. # to keep track of the acceptance ratop
         pred = model(X)
@@ -200,11 +200,11 @@ class MCMCOptimizer(Optimizer):
 
             # size of the neighboroud considered
             if idx_output == -1:
-                num_params = model.linear[0].weight.data.shape[1] + 1 + model.linear[1].weight.data.shape[0] 
-                params_line = torch.cat((model.linear[0].weight.data[idx_hidden][0], model.linear[0].bias.data[idx_hidden], model.linear[1].weight.data[:,idx_hidden][:,0]))
+                num_params = model.linears[0].weight.data.shape[1] + 1 + model.linears[1].weight.data.shape[0] 
+                params_line = torch.cat((model.linears[0].weight.data[idx_hidden][0], model.linears[0].bias.data[idx_hidden], model.linears[1].weight.data[:,idx_hidden][:,0]))
             else:
-                num_params = model.linear[0].weight.data.shape[1] + 1 + model.linear[1].weight.data.shape[0] + 1
-                params_line = torch.cat((model.linear[0].weight.data[idx_hidden][0],model.linear[0].bias.data[idx_hidden], model.linear[1].weight.data[:,idx_hidden][:,0], model.linear[1].bias.data[idx_output]))
+                num_params = model.linears[0].weight.data.shape[1] + 1 + model.linears[1].weight.data.shape[0] + 1
+                params_line = torch.cat((model.linears[0].weight.data[idx_hidden][0],model.linears[0].bias.data[idx_hidden], model.linears[1].weight.data[:,idx_hidden][:,0], model.linears[1].bias.data[idx_output]))
             # sampling a proposal for these parameters
             epsilon = torch.tensor(self.sampler.sample(num_params).astype('float32'))[:,0].to(device)
 
@@ -212,12 +212,12 @@ class MCMCOptimizer(Optimizer):
             student_ratio, params_tilde = self.prior.get_ratio(epsilon, params_line)
 
             # applying the changes to get the new value of the loss
-            model.linear[0].weight.data[idx_hidden] += epsilon[:model.linear[0].weight.data.shape[1]]
-            model.linear[0].bias.data[idx_hidden] += epsilon[model.linear[0].weight.data.shape[1]]
+            model.linears[0].weight.data[idx_hidden] += epsilon[:model.linears[0].weight.data.shape[1]]
+            model.linears[0].bias.data[idx_hidden] += epsilon[model.linears[0].weight.data.shape[1]]
 
-            model.linear[1].weight.data[:,idx_hidden] += epsilon[model.linear[0].weight.data.shape[1]+1:model.linear[0].weight.data.shape[1]+1+n_output].reshape(n_output,1)
+            model.linears[1].weight.data[:,idx_hidden] += epsilon[model.linears[0].weight.data.shape[1]+1:model.linears[0].weight.data.shape[1]+1+n_output].reshape(n_output,1)
             if idx_output != -1:
-                model.linear[1].bias.data[idx_output] += epsilon[-1]
+                model.linears[1].bias.data[idx_output] += epsilon[-1]
 
             pred = model(X)
             loss_prop = loss_fn(pred, y)
@@ -233,12 +233,12 @@ class MCMCOptimizer(Optimizer):
             else:
               # not accepting, so undoing the change
               not_accepts += 1
-              model.linear[0].weight.data[idx_hidden] -= epsilon[:model.linear[0].weight.data.shape[1]]
-              model.linear[0].bias.data[idx_hidden] -= epsilon[model.linear[0].weight.data.shape[1]]
+              model.linears[0].weight.data[idx_hidden] -= epsilon[:model.linears[0].weight.data.shape[1]]
+              model.linears[0].bias.data[idx_hidden] -= epsilon[model.linears[0].weight.data.shape[1]]
 
-              model.linear[1].weight.data[:,idx_hidden] -= epsilon[model.linear[0].weight.data.shape[1]+1:model.linear[0].weight.data.shape[1]+1+n_output].reshape(n_output,1)
+              model.linears[1].weight.data[:,idx_hidden] -= epsilon[model.linears[0].weight.data.shape[1]+1:model.linears[0].weight.data.shape[1]+1+n_output].reshape(n_output,1)
               if idx_output != -1:
-                model.linear[1].bias.data[idx_output] -= epsilon[-1]
+                model.linears[1].bias.data[idx_output] -= epsilon[-1]
         acceptance_ratio = accepts / (not_accepts + accepts)
         return acceptance_ratio
 
