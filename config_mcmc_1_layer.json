@@ -2,7 +2,7 @@
 	"batch_size": 50000, 
 	"student_variance_prop": 0.00000000001, 
 	"student_variance_prior": 0.00000000001, 
-  "lambda" : 10000000,
+  "lamb" : 10000000,
 	"epochs": 1000, 
 	"exp_name": "results_mcmc", 
 	"data_folder": "/home/pagay/pytorch_cifar10/", 
