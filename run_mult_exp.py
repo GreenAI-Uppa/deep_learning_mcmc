@@ -28,7 +28,7 @@ parser.add_argument('--epochs',
 parser.add_argument('--iter_mcmc',
                     help='number of iterations for the mcmc algorithm',
                     default=50, type=int)
-parser.add_argument('--lambda', dest='lambda',
+parser.add_argument('--lambda', dest='lamb',
                     help='value for the lambda parameter which is a tradeoff between the data and the student regularisation prior',
                     default=1000000, type=float)
 parser.add_argument('--exp_name', dest='exp_name',
@@ -119,7 +119,7 @@ else:
     st_prop = stats.Student(params['student_variance_prop'])
     #st_prior = stats.HeavyTail(params['student_variance_prop'],100)
     st_prior = stats.Student(params['student_variance_prior'])
-    optimizer = optimizers.MCMCOptimizer(st_prop, nn_size=nn_size,iter_mcmc=params['iter_mcmc'], lamb=params['lambda'], prior=st_prior)
+    optimizer = optimizers.MCMCOptimizer(st_prop, nn_size=nn_size,iter_mcmc=params['iter_mcmc'], lamb=params['lamb'], prior=st_prior)
 
 
 exp_name = params['exp_name']
@@ -142,37 +142,38 @@ sparse_threshold = params['sparse_threshold']
 loss_fn = nets.my_mse_loss
 start_all = time.time()
 res = []
-for t in range(epochs):
-    start_epoch = time.time()
-    print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
-    if use_gradient:
-        optimizer.train_1_epoch(train_dataloader, model, loss_fn)
-    else:
-        acceptance_ratio_f, acceptance_ratio_l = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer)
-    results[t] = {}
-    end_epoch = time.time() 
-    results[t]['training time'] = time.time() - start_epoch
-    loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
-    if use_gradient:
-        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
-    else:
-        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n Acceptance ratios: {acceptance_ratio_f, acceptance_ratio_l}")
-    if not use_gradient:
-        results[t]['accept_ratio_filter'] = acceptance_ratio_f
-        results[t]['accept_ratio_linear'] = acceptance_ratio_l
-    results[t]['train'] = {'training loss' : loss, 'training accuracy' : accuracy }
-    loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
-    print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")    
-    results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy}
-    #sparse evaluation of the linear model
-    for i in range(9):
-        proba = 0.1+i*0.1
-        loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba)
-        print(f"Sparse Test Error: \n Accuracy: {(100*accuracy_sparse):>0.1f}%, Avg loss: {loss_sparse:>8f}, Sparsity index: {kept:>8f} \n")
-        if i == 0:
-            results[t]['sparse test'] = [{'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }]
+for exp_number in range(10):
+    for t in range(epochs):
+        start_epoch = time.time()
+        print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
+        if use_gradient:
+            optimizer.train_1_epoch(train_dataloader, model, loss_fn)
         else:
-            results[t]['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
-    results[t]['training time'] = time.time() - end_epoch
-    torch.save(model, exp_name+'.th')
-    json.dump(results, open(exp_name+'.json','w'))
+            acceptance_ratio_f, acceptance_ratio_l = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer)
+        results[t] = {}
+        end_epoch = time.time() 
+        results[t]['training time'] = time.time() - start_epoch
+        loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
+        if use_gradient:
+            print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+        else:
+            print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n Acceptance ratios: {acceptance_ratio_f, acceptance_ratio_l}")
+        if not use_gradient:
+            results[t]['accept_ratio_filter'] = acceptance_ratio_f
+            results[t]['accept_ratio_linear'] = acceptance_ratio_l
+        results[t]['train'] = {'training loss' : loss, 'training accuracy' : accuracy }
+        loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
+        print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")    
+        results[t]['test'] = {'test loss' : loss, 'testing accuracy' : accuracy}
+        #sparse evaluation of the linear model
+        for i in range(9):
+            proba = 0.1+i*0.1
+            loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba)
+            print(f"Sparse Test Error: \n Accuracy: {(100*accuracy_sparse):>0.1f}%, Avg loss: {loss_sparse:>8f}, Sparsity index: {kept:>8f} \n")
+            if i == 0:
+                results[t]['sparse test'] = [{'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }]
+            else:
+                results[t]['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
+        results[t]['training time'] = time.time() - end_epoch
+        torch.save(model, exp_name+'.th')
+        json.dump(results, open(exp_name+'_'+str(exp_number)+'.json','w'))

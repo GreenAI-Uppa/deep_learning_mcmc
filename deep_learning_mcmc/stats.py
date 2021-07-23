@@ -2,7 +2,7 @@ import numpy as np
 import functools
 from operator import mul
 import math
-
+import torch
 
 class Student(object):
     """
@@ -79,3 +79,49 @@ class Student(object):
 
       ratio = num / den
       return functools.reduce(mul, ratio, 1), params_tilde
+
+class HeavyTail(object):
+    """
+    univariate power law from https://hal.archives-ouvertes.fr/hal-03262679, Theorem 3.1
+    """
+    def __init__(self, s, R):
+        """
+        s : variance
+        R : bound on the support distribution
+        """
+        self.R = R
+        self.s = s
+        # precomputing the normalization term for later use when computing data likelihood
+        self.normalization = 3./(2*self.s*(1-1./pow(1+self.R/self.s,3)))
+
+    def distribution(self, x):
+        '''
+        for use when computing the likelihood of multiples univariate variables
+        '''
+        if torch.sum(torch.abs(x)< self.R) == torch.flatten(x).shape[0]:
+            d = pow(torch.prod(1+torch.abs(x)/self.s)* self.normalization,4)
+        else:
+            d=0 
+        return d
+
+    def get_ratio(self, epsilon, params):
+      """
+      compute the likelihood ratio of two variables 
+               student(params[i] + epsilon[i])
+      Prod_i (   ------------------------      )
+                   student(params[i])
+      """
+      #apply the move to get theta tilde
+      params_tilde = params + epsilon
+
+      # get the likelihood of the theta
+      #den = self.distribution(params)
+      den_tensor = (1+torch.abs(params)/self.s)*self.normalization
+
+      # get the likelihood of the theta tilde
+      #num = self.distribution(params_tilde)
+      num_tensor = (1+torch.abs(params_tilde)/self.s)*self.normalization
+      ratio = pow(torch.prod(den_tensor/num_tensor),4)
+      #print('num=',num,'den=',den)
+      #ratio = num / den
+      return ratio, params_tilde

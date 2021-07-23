@@ -1,0 +1,13 @@
+{
+		"batch_size": 50000,
+        "student_variance_prop": 0.00000001,
+        "student_variance_prior": 0.0000000001,
+        "lambda" : 1000000,
+        "iter_mcmc": 800,
+        "epochs": 100,
+        "exp_name": "results_test",
+        "optimizer": "mcmc",
+        "nb_filters":64,
+        "nn_size": "vertical",
+        "dataset": "CIFAR10"
+}

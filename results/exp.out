@@ -1,0 +1,436 @@
+Files already downloaded and verified
+Files already downloaded and verified
+--Student analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 1000000
+/home/sloustau/miniconda3/lib/python3.7/site-packages/torch/utils/data/dataloader.py:481: UserWarning: This DataLoader will create 20 worker processes in total. Our suggested max number of worker in current system is 16, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  cpuset_checked))
+training time 418.78641724586487
+Training Error: 
+ Accuracy: 12.0%, Avg loss: 0.000002 
+ Acceptance ratios: (0.5261109309114499, 0.5673702472170016)
+Test Error: 
+ Accuracy: 11.6%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 100000
+training time 417.9384763240814
+Training Error: 
+ Accuracy: 11.4%, Avg loss: 0.000002 
+ Acceptance ratios: (0.49432272509195585, 0.5664508620062559)
+Test Error: 
+ Accuracy: 11.7%, Avg loss: 0.000010 
+
+--Student analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 1000000
+training time 417.87286829948425
+Training Error: 
+ Accuracy: 12.7%, Avg loss: 0.000002 
+ Acceptance ratios: (0.6304312970979637, 0.584247620431592)
+Test Error: 
+ Accuracy: 12.1%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 100000
+training time 417.8503270149231
+Training Error: 
+ Accuracy: 11.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.6458197256694971, 0.5904439319688671)
+Test Error: 
+ Accuracy: 11.2%, Avg loss: 0.000010 
+
+--Student analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 1000000
+training time 417.92559242248535
+Training Error: 
+ Accuracy: 19.0%, Avg loss: 0.000002 
+ Acceptance ratios: (0.3579480477046234, 0.4681172995172563)
+Test Error: 
+ Accuracy: 19.2%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 100000
+training time 417.8991153240204
+Training Error: 
+ Accuracy: 12.7%, Avg loss: 0.000002 
+ Acceptance ratios: (0.3203048978267921, 0.4621223073586815)
+Test Error: 
+ Accuracy: 12.6%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 1000000
+training time 418.0221655368805
+Training Error: 
+ Accuracy: 21.6%, Avg loss: 0.000002 
+ Acceptance ratios: (0.46845831992275505, 0.4557522123893805)
+Test Error: 
+ Accuracy: 22.2%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 100000
+training time 418.235622882843
+Training Error: 
+ Accuracy: 14.8%, Avg loss: 0.000002 
+ Acceptance ratios: (0.44490979381443296, 0.4498259860788863)
+Test Error: 
+ Accuracy: 14.9%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 1000000
+training time 610.3459188938141
+Training Error: 
+ Accuracy: 27.2%, Avg loss: 0.000002 
+ Acceptance ratios: (0.506256930144147, 0.09819536786731936)
+Test Error: 
+ Accuracy: 27.4%, Avg loss: 0.000008 
+
+--Student analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 100000
+training time 612.4623072147369
+Training Error: 
+ Accuracy: 16.7%, Avg loss: 0.000002 
+ Acceptance ratios: (0.48688471502590674, 0.076171875)
+Test Error: 
+ Accuracy: 16.4%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 1000000
+training time 612.2882180213928
+Training Error: 
+ Accuracy: 30.8%, Avg loss: 0.000002 
+ Acceptance ratios: (0.6234647705235941, 0.14371560961482768)
+Test Error: 
+ Accuracy: 31.2%, Avg loss: 0.000008 
+
+--Student analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 100000
+training time 610.9272971153259
+Training Error: 
+ Accuracy: 19.8%, Avg loss: 0.000002 
+ Acceptance ratios: (0.6444903143855192, 0.11859582542694497)
+Test Error: 
+ Accuracy: 19.6%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 1000000
+training time 613.2753994464874
+Training Error: 
+ Accuracy: 28.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.33726453726453726, 0.033753148614609575)
+Test Error: 
+ Accuracy: 28.6%, Avg loss: 0.000008 
+
+--Student analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 100000
+training time 612.4717526435852
+Training Error: 
+ Accuracy: 17.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.32054176072234764, 0.020147847514132483)
+Test Error: 
+ Accuracy: 17.4%, Avg loss: 0.000009 
+
+--Student analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 1000000
+training time 611.0018129348755
+Training Error: 
+ Accuracy: 30.8%, Avg loss: 0.000002 
+ Acceptance ratios: (0.4374105296643868, 0.04120177933347918)
+Test Error: 
+ Accuracy: 30.7%, Avg loss: 0.000008 
+
+--Student analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 100000
+training time 613.1424009799957
+Training Error: 
+ Accuracy: 17.5%, Avg loss: 0.000002 
+ Acceptance ratios: (0.4655003270111184, 0.0299625468164794)
+Test Error: 
+ Accuracy: 17.8%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 1000000
+training time 397.9415054321289
+Training Error: 
+ Accuracy: 12.9%, Avg loss: 0.000002 
+ Acceptance ratios: (0.28103504749426794, 0.47704044911472576)
+Test Error: 
+ Accuracy: 13.0%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 100000
+training time 398.1489200592041
+Training Error: 
+ Accuracy: 9.2%, Avg loss: 0.000002 
+ Acceptance ratios: (0.23546606040922377, 0.4998555122092183)
+Test Error: 
+ Accuracy: 9.7%, Avg loss: 0.000010 
+
+--HeavyTail R=10 analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 1000000
+training time 397.9893054962158
+Training Error: 
+ Accuracy: 16.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.279050736497545, 0.5033837293016559)
+Test Error: 
+ Accuracy: 15.8%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 100000
+training time 397.9287419319153
+Training Error: 
+ Accuracy: 9.5%, Avg loss: 0.000002 
+ Acceptance ratios: (0.24144672531769307, 0.49913432405136343)
+Test Error: 
+ Accuracy: 9.7%, Avg loss: 0.000010 
+
+--HeavyTail R=10 analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 1000000
+training time 398.0307025909424
+Training Error: 
+ Accuracy: 16.7%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2230356271351879, 0.42590052696166897)
+Test Error: 
+ Accuracy: 16.6%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 100000
+training time 397.66792392730713
+Training Error: 
+ Accuracy: 13.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.1997471554993679, 0.4431685196021065)
+Test Error: 
+ Accuracy: 12.9%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 1000000
+training time 397.92390418052673
+Training Error: 
+ Accuracy: 13.5%, Avg loss: 0.000002 
+ Acceptance ratios: (0.18984512214593646, 0.4318264541020601)
+Test Error: 
+ Accuracy: 13.8%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 100000
+training time 397.9967739582062
+Training Error: 
+ Accuracy: 13.6%, Avg loss: 0.000002 
+ Acceptance ratios: (0.20879659908436887, 0.4196917314894843)
+Test Error: 
+ Accuracy: 12.9%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 1000000
+training time 401.14028310775757
+Training Error: 
+ Accuracy: 23.4%, Avg loss: 0.000002 
+ Acceptance ratios: (0.22765544041450778, 0.04665798611111111)
+Test Error: 
+ Accuracy: 23.7%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 100000
+training time 401.0332200527191
+Training Error: 
+ Accuracy: 12.2%, Avg loss: 0.000002 
+ Acceptance ratios: (0.20850857327725655, 0.033072803589520916)
+Test Error: 
+ Accuracy: 12.3%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 1000000
+training time 401.01493740081787
+Training Error: 
+ Accuracy: 22.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.24385147082462627, 0.04818927353218666)
+Test Error: 
+ Accuracy: 22.5%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 100000
+training time 401.1101312637329
+Training Error: 
+ Accuracy: 14.0%, Avg loss: 0.000002 
+ Acceptance ratios: (0.25675675675675674, 0.03172866520787746)
+Test Error: 
+ Accuracy: 13.8%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 1000000
+training time 401.16616892814636
+Training Error: 
+ Accuracy: 22.6%, Avg loss: 0.000002 
+ Acceptance ratios: (0.21357827476038338, 0.02088791848617176)
+Test Error: 
+ Accuracy: 23.1%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 100000
+training time 401.16799211502075
+Training Error: 
+ Accuracy: 13.0%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2067131937520771, 0.013803461593477328)
+Test Error: 
+ Accuracy: 13.4%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 1000000
+training time 401.20976161956787
+Training Error: 
+ Accuracy: 22.5%, Avg loss: 0.000002 
+ Acceptance ratios: (0.1924503952250363, 0.019708716759655097)
+Test Error: 
+ Accuracy: 21.9%, Avg loss: 0.000009 
+
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 100000
+training time 401.42912793159485
+Training Error: 
+ Accuracy: 14.0%, Avg loss: 0.000002 
+ Acceptance ratios: (0.17968, 0.01309090909090909)
+Test Error: 
+ Accuracy: 14.4%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 1000000
+training time 398.1545479297638
+Training Error: 
+ Accuracy: 14.0%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2928849902534113, 0.47739092747760764)
+Test Error: 
+ Accuracy: 13.9%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 100000
+training time 398.3927483558655
+Training Error: 
+ Accuracy: 11.4%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2542921930677033, 0.44966006075509907)
+Test Error: 
+ Accuracy: 11.4%, Avg loss: 0.000010 
+
+--HeavyTail R=100 analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 1000000
+training time 398.31384086608887
+Training Error: 
+ Accuracy: 10.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2574193548387097, 0.5057971014492754)
+Test Error: 
+ Accuracy: 10.9%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= 300 variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 100000
+training time 398.2916781902313
+Training Error: 
+ Accuracy: 11.6%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2584704743465634, 0.5044921025938269)
+Test Error: 
+ Accuracy: 11.2%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 1000000
+training time 398.3707411289215
+Training Error: 
+ Accuracy: 17.1%, Avg loss: 0.000002 
+ Acceptance ratios: (0.22233234225305584, 0.4139538218844113)
+Test Error: 
+ Accuracy: 16.6%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 100000
+training time 398.10603284835815
+Training Error: 
+ Accuracy: 11.9%, Avg loss: 0.000002 
+ Acceptance ratios: (0.1882181582780385, 0.42363070689530424)
+Test Error: 
+ Accuracy: 12.2%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 1000000
+training time 399.0428605079651
+Training Error: 
+ Accuracy: 13.7%, Avg loss: 0.000002 
+ Acceptance ratios: (0.23075671277461351, 0.4113316492241068)
+Test Error: 
+ Accuracy: 13.9%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= 300 variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 100000
+training time 400.6607871055603
+Training Error: 
+ Accuracy: 13.9%, Avg loss: 0.000002 
+ Acceptance ratios: (0.18777869529314617, 0.43284331301541773)
+Test Error: 
+ Accuracy: 14.3%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 1000000
+training time 440.73681807518005
+Training Error: 
+ Accuracy: 21.7%, Avg loss: 0.000002 
+ Acceptance ratios: (0.27664, 0.04690909090909091)
+Test Error: 
+ Accuracy: 21.4%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 100000
+training time 443.1896471977234
+Training Error: 
+ Accuracy: 12.2%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2470991992155581, 0.0309775952741157)
+Test Error: 
+ Accuracy: 12.1%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 1000000
+training time 443.6971592903137
+Training Error: 
+ Accuracy: 23.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.25632350571934914, 0.04495033712752845)
+Test Error: 
+ Accuracy: 23.4%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 100000
+training time 443.8641631603241
+Training Error: 
+ Accuracy: 11.6%, Avg loss: 0.000002 
+ Acceptance ratios: (0.21824368114063514, 0.034495227075498985)
+Test Error: 
+ Accuracy: 11.4%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 1000000
+training time 444.13736486434937
+Training Error: 
+ Accuracy: 23.5%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2194640802235739, 0.020909678810088383)
+Test Error: 
+ Accuracy: 23.1%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 100000
+training time 444.0360310077667
+Training Error: 
+ Accuracy: 14.1%, Avg loss: 0.000002 
+ Acceptance ratios: (0.17807997409745832, 0.014179266439991319)
+Test Error: 
+ Accuracy: 14.4%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 1000000
+training time 444.43311071395874
+Training Error: 
+ Accuracy: 24.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.20785219399538107, 0.021954369349978475)
+Test Error: 
+ Accuracy: 24.2%, Avg loss: 0.000009 
+
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 100000
+training time 443.79904675483704
+Training Error: 
+ Accuracy: 15.1%, Avg loss: 0.000002 
+ Acceptance ratios: (0.2026217834601068, 0.014398379277910427)
+Test Error: 
+ Accuracy: 14.4%, Avg loss: 0.000009 
+

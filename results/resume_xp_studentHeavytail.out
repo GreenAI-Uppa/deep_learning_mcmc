@@ -1,0 +1,60 @@
+20000 iterations MCMC
+nb_filters = 64
+full batch experience
+Student prior VS HeavyTail prior from Theorem 3.1
+--Student analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 1000000
+training time 612.2882180213928
+Training Error: 
+ Accuracy: 30.8%, Avg loss: 0.000002 
+ Acceptance ratios: (0.6234647705235941, 0.14371560961482768)
+Test Error: 
+ Accuracy: 31.2%, Avg loss: 0.000008 
+ --Student analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 1000000
+training time 613.2753994464874
+Training Error: 
+ Accuracy: 28.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.33726453726453726, 0.033753148614609575)
+Test Error: 
+ Accuracy: 28.6%, Avg loss: 0.000008 
+ --Student analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 1000000
+training time 611.0018129348755
+Training Error: 
+ Accuracy: 30.8%, Avg loss: 0.000002 
+ Acceptance ratios: (0.4374105296643868, 0.04120177933347918)
+Test Error: 
+ Accuracy: 30.7%, Avg loss: 0.000008 
+--HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-10 lambda_= 1000000
+training time 401.14028310775757
+Training Error: 
+ Accuracy: 23.4%, Avg loss: 0.000002 
+ Acceptance ratios: (0.22765544041450778, 0.04665798611111111)
+Test Error: 
+ Accuracy: 23.7%, Avg loss: 0.000009 
+ --HeavyTail R=10 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-10 lambda_= 1000000
+training time 401.16616892814636
+Training Error: 
+ Accuracy: 22.6%, Avg loss: 0.000002 
+ Acceptance ratios: (0.21357827476038338, 0.02088791848617176)
+Test Error: 
+ Accuracy: 23.1%, Avg loss: 0.000009 
+--HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-10 variance_prior= 1e-08 lambda_= 1000000
+training time 443.6971592903137
+Training Error: 
+ Accuracy: 23.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.25632350571934914, 0.04495033712752845)
+Test Error: 
+ Accuracy: 23.4%, Avg loss: 0.000009 
+ --HeavyTail R=100 analysis--
+nn_size= full variance_prop= 1e-09 variance_prior= 1e-08 lambda_= 1000000
+training time 444.43311071395874
+Training Error: 
+ Accuracy: 24.3%, Avg loss: 0.000002 
+ Acceptance ratios: (0.20785219399538107, 0.021954369349978475)
+Test Error: 
+ Accuracy: 24.2%, Avg loss: 0.000009 

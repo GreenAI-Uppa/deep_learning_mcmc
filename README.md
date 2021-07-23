@@ -1,18 +1,14 @@
-# Deep learning by MCMC
+# Deep learning by MCMC with sparsity priors
 
 
-This repo is a work in progress to provide the code to optimize neural networks with Markov Chain Monte Carlo Optimization
+This repo is a work in progress to provide the code to optimize sparse neural networks with Markov Chain Monte Carlo Optimization
 
 
-## installation
+ Installation
 
 ```
 pip install torch 
-pip install -r requirements.txt
-python setup.py install
 ```
-
-## usage
 
 Train the model on cifar-10 with mcmc (run --help for additional arguments)
 
