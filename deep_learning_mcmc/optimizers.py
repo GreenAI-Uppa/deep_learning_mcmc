@@ -85,7 +85,7 @@ class MCMCOptimizer(Optimizer):
         """
         either gradient or mcmc are used, depending on the arguments in kwargs
         """
-        acceptance_ratio,  num_items_read, results = 0, 0, {}
+        acceptance_ratio,  num_items_read, explo_ratio = 0, 0, 0
         device = next(model.parameters()).device
         for batch, (X, y) in enumerate(dataloader):
             if self.data_points_max <= num_items_read:
@@ -95,8 +95,11 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptance_ratio += self.train_1_batch(X, y, model, loss_fn)
-        return acceptance_ratio / (batch+1)
+            acceptances = self.train_1_batch(X, y, model, loss_fn)
+            if len(acceptances) == 2:
+                acceptance_ratio += acceptances[0]
+                explo_ratio += acceptances[1]
+        return acceptance_ratio / (batch+1), explo_ratio / (batch+1)
 
     def train_1_batch(self, X, y, model, loss_fn):
         """
@@ -116,7 +119,7 @@ class MCMCOptimizer(Optimizer):
         model : optimised model (modified by reference)
         """
         device = next(model.parameters()).device
-        accepts, not_accepts = 0., 0. # to keep track of the acceptance ratop
+        accepts, not_accepts, explo  = 0., 0., 0. # to keep track of the acceptance ratop
         pred = model(X)
         loss = loss_fn(pred,y).item()
         for i in range(self.iter_mcmc):
@@ -136,16 +139,20 @@ class MCMCOptimizer(Optimizer):
             data_term = torch.exp(self.lamb * (loss -loss_prop))
 
             rho  = min(1, data_term * student_ratio)
+            #import pdb; pdb.set_trace()
             if rho > torch.rand(1).to(device):
               # accepting, keeping the new value of the loss
               accepts += 1
+              if loss < loss_prop:
+                  explo += 1
               loss = loss_prop
             else:
               # not accepting, so undoing the change
               not_accepts += 1
               self.selector.undo(model, neighborhood, epsilon)
         acceptance_ratio = accepts / (not_accepts + accepts)
-        return acceptance_ratio
+        explo_ratio = explo / accepts
+        return acceptance_ratio, explo_ratio
 
 class MCMCSmallNei(MCMCOptimizer):
     def train_1_batch(self, X, y, model, loss_fn):
