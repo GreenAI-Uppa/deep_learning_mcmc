@@ -27,10 +27,10 @@ class Student(object):
         Produce M samples of d-dimensional multivariate t distribution
         Input:
         n = # of samples to produce
-        ''' 
+        '''
         g = np.tile(np.random.gamma(self.df/2.,2./self.df,n),(self.d,1)).T
         Z = np.random.multivariate_normal(np.zeros(self.d),self.S,n)
-        return self.m + Z/np.sqrt(g)
+        return (self.m + Z/np.sqrt(g)).reshape(n,)
 
     def t_distribution_fast(self, x):
         '''
@@ -53,7 +53,7 @@ class Student(object):
             Sigma = scale matrix (dxd numpy array)
             df = degrees of freedom
             d: dimension
-        
+
         If x is a large vector, see the t_distribution_fast function
         '''
         Num = math.gamma(1. * (self.d+self.df)/2)
@@ -63,7 +63,7 @@ class Student(object):
 
     def get_ratio(self, epsilon, params):
       """
-      compute the likelihood ratio of two variables 
+      compute the likelihood ratio of two variables
                student(params[i] + epsilon[i])
       Prod_i (   ------------------------      )
                    student(params[i])
@@ -78,4 +78,13 @@ class Student(object):
       num = self.t_distribution_fast(params_tilde)
 
       ratio = num / den
-      return functools.reduce(mul, ratio, 1), params_tilde
+      return functools.reduce(mul, ratio, 1)
+
+    
+class BinarySampler(object):
+    def __init__(self, r=0.5):
+        self.rho = r
+    def sample(self, n):
+        return np.random.binomial(1,self.rho,size=n)
+    def get_ratio(self, epsilon, params):
+        return 1

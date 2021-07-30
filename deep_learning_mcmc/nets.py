@@ -33,6 +33,20 @@ class MLP(nn.Module):
             x = activation(x)
         return x
 
+class BinaryNetwork(MLP):
+    def __init__(self, sizes, activations='ReLU'):
+        """
+        builds a multi layer perceptron
+        sizes : list of the size of the different layers
+        act : activation function either "relu", "elu", or "soft" (softmax)
+        """
+        if len(sizes)< 2:
+            raise Exception("sizes argument is" +  sizes.__str__() + ' . At least two elements are needed to have the input and output sizes')
+        super(BinaryNetwork, self).__init__(sizes, activations='ReLU')
+        for linear in self.linears:
+            linear.weight.data = np.sign(linear.weight.data)
+            linear.bias.data = np.sign(linear.bias.data)
+
 loss = nn.MSELoss()
 def my_mse_loss(x,y):
     mse_loss = nn.MSELoss()
