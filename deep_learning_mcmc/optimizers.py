@@ -120,7 +120,7 @@ class MCMCOptimizer(Optimizer):
             data_term = torch.exp(self.lamb * (loss -loss_prop))
 
             rho  = min(1, data_term * student_ratio)
-            #import pdb; pdb.set_trace()
+            print(loss, loss_prop)
             if rho > torch.rand(1).to(device):
               # accepting, keeping the new value of the loss
               accepts += 1
@@ -132,7 +132,10 @@ class MCMCOptimizer(Optimizer):
               not_accepts += 1
               self.selector.undo(model, neighborhood, epsilon)
         acceptance_ratio = accepts / (not_accepts + accepts)
-        explo_ratio = explo / accepts
+        if accepts == 0:
+            explo_ratio = 0
+        else:
+            explo_ratio = explo / accepts
         return acceptance_ratio, explo_ratio
 
 class MCMCSmallNei(MCMCOptimizer):
