@@ -42,7 +42,7 @@ class BinaryNetwork(MLP):
         """
         if len(sizes)< 2:
             raise Exception("sizes argument is" +  sizes.__str__() + ' . At least two elements are needed to have the input and output sizes')
-        super(BinaryNetwork, self).__init__(sizes, activations='ReLU')
+        super(BinaryNetwork, self).__init__(sizes, activations=activations)
         for linear in self.linears:
             linear.weight.data = np.sign(linear.weight.data)
             linear.bias.data = np.sign(linear.bias.data)
