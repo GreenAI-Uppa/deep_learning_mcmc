@@ -1,25 +1,6 @@
 from abc import ABC, abstractmethod
 import torch
 
-def train_1_epoch_small_nei(dataloader, model, loss_fn, **kwargs):
-    """
-    either gradient or mcmc are used, depending on the arguments in kwargs
-    using a small neighborhood each time
-    """
-    if 'iter_mcmc' in kwargs:
-        acceptance_ratio = 0.
-    for batch, (X, y) in enumerate(dataloader):
-        if 'iter_mcmc' in kwargs:
-            iter_mcmc, lamb, proposal, prior= kwargs['iter_mcmc'], kwargs['lamb'], kwargs['proposal'], kwargs['prior']
-            acceptance_ratio += mcmc_small_nei(X, y, model, loss_fn, proposal, prior=prior, lamb=lamb, iter_mcmc=iter_mcmc)
-        else:
-            lr = kwargs['lr']
-            gradient(X, y, model, loss_fn, lr=lr)
-    if 'iter_mcmc' in kwargs:
-        return acceptance_ratio / (batch+1)
-    else:
-        return 0
-
 class Optimizer(ABC):
     def __init__(self, data_points_max = 1000000000):
         """

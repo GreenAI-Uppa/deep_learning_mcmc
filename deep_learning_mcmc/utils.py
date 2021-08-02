@@ -45,7 +45,7 @@ class LinearSelector(Selector):
         model.linears[0].weight.data[neighborhood] -= proposal[:-1]
         model.linears[0].bias.data[neighborhood] -= proposal[-1]
 
-class BinSelector(LinearSelector):
+class BinSelector(Selector):
     neighborhood_size = None
     def __init__(self, model, neighborhood_size):
         self.neighborhood_size = neighborhood_size

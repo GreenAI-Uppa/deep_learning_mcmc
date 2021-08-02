@@ -49,6 +49,9 @@ class BinaryNetwork(MLP):
 
 mse_loss = nn.MSELoss()
 
+def loss_acc(x,y):
+    pass
+
 def my_mse_loss(x,y):
     #mse_loss = nn.MSELoss()
     y = y.reshape((y.shape[0],1))
