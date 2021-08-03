@@ -1,0 +1,21 @@
+{
+        "batch_size": 50000,
+        "epochs": 1000,
+        "exp_name": "mcmc_linear_binary",
+        "optimizer": {
+                "name": "mcmc",
+                "selector" : {
+                    "name": "BinSelector",
+                    "neighborhood_size":1
+                },
+                "sampler" : {
+                    "name" : "BinarySampler"
+                    },
+                "prior" : {
+                    "name" : "BinarySampler"
+                },
+                "iter_mcmc" : 5000,
+                "lamb" : 10000000
+        }
+}
+

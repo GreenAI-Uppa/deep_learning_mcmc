@@ -1,5 +1,15 @@
 from abc import ABC, abstractmethod
 import torch
+import sys
+current_module = sys.modules[__name__]
+
+def build_selector(config, layer_sizes):
+    selector_name = config["name"]
+    if selector_name == "BinSelector":
+        neighborhood_size = config["neighborhood_size"]
+        return getattr(current_module, selector_name)(layer_sizes, neighborhood_size)
+    else:
+        return getattr(current_module, selector_name)(layer_sizes)
 
 class Selector(ABC):
     @abstractmethod
@@ -25,8 +35,8 @@ class Selector(ABC):
 
 class LinearSelector(Selector):
     neighborhood_size = None
-    def __init__(self, model):
-        self.n_rows, self.neighborhood_size = model.linears[0].weight.data.shape
+    def __init__(self, sizes):
+        self.neighborhood_size, self.n_rows = sizes
         self.neighborhood_size += 1
 
     def get_neighborhood(self):
@@ -47,9 +57,9 @@ class LinearSelector(Selector):
 
 class BinSelector(Selector):
     neighborhood_size = None
-    def __init__(self, model, neighborhood_size):
+    def __init__(self, sizes, neighborhood_size):
         self.neighborhood_size = neighborhood_size
-        self.n_outputs, self.n_inputs = model.linears[0].weight.data.shape
+        self.n_inputs, self.n_outputs = sizes
 
     def get_neighborhood(self):
         idces_w = torch.cat((torch.randint(0,self.n_outputs,(self.neighborhood_size,1)), torch.randint(0,self.n_inputs+1,(self.neighborhood_size,1))), dim=1)
@@ -80,10 +90,8 @@ class BinLinSelector(LinearSelector):
 
 class OneHiddenSelector(Selector):
     neighborhood_size = None
-    def __init__(self, model):
-        self.n_hidden = model.linears[0].weight.data.shape[0]
-        self.n_output = model.linears[1].bias.data.shape[0]
-        self.n_input = model.linears[0].weight.data.shape[1]
+    def __init__(self, layer_sizes):
+        self.n_input, self.n_hidden, self.n_output = layer_sizes
 
     def get_neighborhood(self):
         idx_hidden = idx_hidden = torch.randint(0, self.n_hidden, (1,))

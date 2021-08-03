@@ -1,4 +1,4 @@
-import time
+import time, os
 from torchvision import datasets
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
@@ -97,7 +97,7 @@ if params['hidden_size'] is None:
     layer_sizes = [input_size, output_size]
 else:
     layer_sizes = [input_size, params['hidden_size'], output_size]
-model = nets.MLP(layer_sizes, act='ReLU')
+model = nets.MLP(layer_sizes, activations='ReLU')
 
 # setting the optimizer
 use_gradient = params['optimizer'] == 'grad'
@@ -144,7 +144,7 @@ for t in range(epochs):
     results[t]['train'] = {'training loss' : loss, 'training accuracy' : accuracy }
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
-    if len(layer_sizes) == 2:
+    if False: #len(layer_sizes) == 2:
         #sparse evaluation of the linear model
         loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,0.01)
         print(f"Sparse Test Error: \n Accuracy: {(100*accuracy_sparse):>0.1f}%, Avg loss: {loss_sparse:>8f}, Sparsity index: {kept:>8f} \n")

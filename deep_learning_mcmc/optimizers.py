@@ -106,7 +106,9 @@ class MCMCOptimizer(Optimizer):
         for i in range(self.iter_mcmc):
             # selecting a line at random
             neighborhood = self.selector.get_neighborhood()
-            epsilon = torch.tensor(self.sampler.sample(self.selector.neighborhood_size).astype('float32')).to(device)
+            epsilon = self.sampler.sample(self.selector.neighborhood_size)
+            if epsilon is not None:
+                epsilon = torch.tensor(epsilon.astype('float32')).to(device)
             params_line = self.selector.getParamLine(neighborhood, model)
             # getting the ratio of the students
             student_ratio = self.prior.get_ratio(epsilon, params_line)
@@ -120,7 +122,7 @@ class MCMCOptimizer(Optimizer):
             data_term = torch.exp(self.lamb * (loss -loss_prop))
 
             rho  = min(1, data_term * student_ratio)
-            print(loss, loss_prop)
+            print(i, loss, loss_prop)
             if rho > torch.rand(1).to(device):
               # accepting, keeping the new value of the loss
               accepts += 1

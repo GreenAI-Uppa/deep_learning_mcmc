@@ -2,7 +2,17 @@ import numpy as np
 import functools
 from operator import mul
 import math
+import sys
+current_module = sys.modules[__name__]
 
+
+def build_distr(config):
+    selector_name = config["name"]
+    if selector_name == "Student":
+        variance = config["variance"]
+        return getattr(current_module, selector_name)(variance)
+    else:
+        return getattr(current_module, selector_name)()
 
 class Student(object):
     """
@@ -80,11 +90,9 @@ class Student(object):
       ratio = num / den
       return functools.reduce(mul, ratio, 1)
 
-    
+
 class BinarySampler(object):
-    def __init__(self, r=0.5):
-        self.rho = r
     def sample(self, n):
-        return np.random.binomial(1,self.rho,size=n)
+        return None
     def get_ratio(self, epsilon, params):
         return 1

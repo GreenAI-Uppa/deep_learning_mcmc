@@ -1,9 +1,8 @@
 {
 	"batch_size": 64, 
 	"epochs": 1000, 
-	"exp_name": "results", 
+	"exp_name": "gradient_1h_layer", 
 	"hidden_size":100,
-	"data_folder": "/home/pagay/pytorch_cifar10/", 
 	"optimizer": { 
 		"name": "grad",
 		"lr": 0.01

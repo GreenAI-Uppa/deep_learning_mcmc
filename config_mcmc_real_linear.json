@@ -1,0 +1,22 @@
+{
+        "batch_size": 50000,
+        "epochs": 1000,
+        "exp_name": "mcmc_linear_real",
+        "optimizer": {
+                "name": "mcmc",
+                "selector" : {
+                    "name":"LinearSelector"
+                },
+                "sampler" : {
+                    "name" : "Student",
+                    "variance" : 0.00000000001
+                    },
+                "prior" : {
+                    "name" : "Student",
+                    "variance" : 0.00000000001
+                },
+                "iter_mcmc" : 50,
+                "lamb" : 10000000
+        }
+}
+
