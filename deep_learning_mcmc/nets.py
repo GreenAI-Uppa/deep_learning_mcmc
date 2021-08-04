@@ -30,7 +30,8 @@ class MLP(nn.Module):
         x = self.flatten(x)
         for linear, activation in zip(self.linears, self.activations):
             x = linear(x)
-            x = activation(x)
+            if activation is not None:
+                x = activation(x)
         return x
 
 class BinaryNetwork(MLP):
