@@ -62,9 +62,8 @@ class MCMCOptimizer(Optimizer):
             self.prior = prior
         self.selector = selector
 
-    def train_1_epoch(self, dataloader, model, loss_fn, optimizer, **kwargs):
+    def train_1_epoch(self, dataloader, model, loss_fn, optimizer, verbose=False):
         """
-        either gradient or mcmc are used, depending on the arguments in kwargs
         """
         acceptance_ratio,  num_items_read, explo_ratio = 0, 0, 0
         device = next(model.parameters()).device
@@ -76,13 +75,13 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptances = self.train_1_batch(X, y, model, loss_fn)
+            acceptances = self.train_1_batch(X, y, model, loss_fn, verbose=verbose)
             if len(acceptances) == 2:
                 acceptance_ratio += acceptances[0]
                 explo_ratio += acceptances[1]
         return acceptance_ratio / (batch+1), explo_ratio / (batch+1)
 
-    def train_1_batch(self, X, y, model, loss_fn):
+    def train_1_batch(self, X, y, model, loss_fn, verbose=False):
         """
         perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
 
@@ -122,7 +121,8 @@ class MCMCOptimizer(Optimizer):
             data_term = torch.exp(self.lamb * (loss -loss_prop))
 
             rho  = min(1, data_term * student_ratio)
-            print(i, loss, loss_prop)
+            if verbose:
+                print(i, loss, loss_prop)
             if rho > torch.rand(1).to(device):
               # accepting, keeping the new value of the loss
               accepts += 1
