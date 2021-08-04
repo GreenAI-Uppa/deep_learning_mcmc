@@ -111,12 +111,12 @@ class Bin1HSelector1(RandomSelector):
         if torch.rand(1) > 0.1:
             layer_idx = 0
             idces_w = torch.cat((torch.randint(0,self.n_hidden,(self.neighborhood_size,1)), torch.randint(0,self.n_inputs+1,(self.neighborhood_size,1))), dim=1)
-            idces_b = idces_w[idces_w[:,1]==self.n_inputs][:,1]
+            idces_b = idces_w[idces_w[:,1]==self.n_inputs][:,0]
             idces_w = idces_w[idces_w[:,1]<self.n_inputs]
         else:
             layer_idx = 1
             idces_w = torch.cat((torch.randint(0,self.n_outputs,(self.neighborhood_size,1)), torch.randint(0,self.n_hidden+1,(self.neighborhood_size,1))), dim=1)
-            idces_b = idces_w[idces_w[:,1]==self.n_hidden][:,1]
+            idces_b = idces_w[idces_w[:,1]==self.n_hidden][:,0]
             idces_w = idces_w[idces_w[:,1]<self.n_hidden]
         return layer_idx, idces_w, idces_b
 
