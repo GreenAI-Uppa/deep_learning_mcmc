@@ -2,14 +2,16 @@ from abc import ABC, abstractmethod
 import torch
 import sys
 current_module = sys.modules[__name__]
+from typing import Tuple
 
 def build_selector(config, layer_sizes):
     selector_name = config["name"]
-    if selector_name == "BinSelector":
+    selector_class = getattr(current_module, selector_name)
+    if issubclass(selector_class, RandomSelector):
         neighborhood_size = config["neighborhood_size"]
-        return getattr(current_module, selector_name)(layer_sizes, neighborhood_size)
+        return selector_class(layer_sizes, neighborhood_size)
     else:
-        return getattr(current_module, selector_name)(layer_sizes)
+        return selector_class(layer_sizes)
 
 class Selector(ABC):
     @abstractmethod
@@ -33,6 +35,10 @@ class Selector(ABC):
     def update(model, neighborhood, proposal):
         pass
 
+class RandomSelector(Selector):
+    def __init__(self, neighborhood_size):
+        self.neighborhood_size = neighborhood_size
+
 class LinearSelector(Selector):
     neighborhood_size = None
     def __init__(self, sizes):
@@ -55,10 +61,19 @@ class LinearSelector(Selector):
         model.linears[0].weight.data[neighborhood] -= proposal[:-1]
         model.linears[0].bias.data[neighborhood] -= proposal[-1]
 
-class BinSelector(Selector):
+class BinLinSelector(LinearSelector):
+    def update(self, model, neighborhood, proposal):
+        model.linears[0].weight.data[neighborhood] *= -1
+        model.linears[0].bias.data[neighborhood] *= -1
+
+    def undo(self, model, neighborhood, proposal):
+        model.linears[0].weight.data[neighborhood] *= -1
+        model.linears[0].bias.data[neighborhood] *= -1
+
+class BinSelector(RandomSelector):
     neighborhood_size = None
     def __init__(self, sizes, neighborhood_size):
-        self.neighborhood_size = neighborhood_size
+        super(BinSelector, self).__init__(neighborhood_size)
         self.n_inputs, self.n_outputs = sizes
 
     def get_neighborhood(self):
@@ -78,15 +93,40 @@ class BinSelector(Selector):
     def undo(self, model, neighborhood, proposal):
         self.update(model, neighborhood, proposal)
 
-class BinLinSelector(LinearSelector):
+
+class Bin1HSelector(RandomSelector):
+    neighborhood_size = None
+    def __init__(self, sizes: Tuple[int, ...], neighborhood_size: int):
+        """
+        neighborhood_size : percentage over the number of parameters between 0 and 1.
+
+        """
+        self.neighborhood_size = neighborhood_size
+        self.n_inputs, self.n_hidden, self.n_outputs = sizes
+        self.neighborhood_size_w1 = int(self.neighborhood_size * (self.n_inputs+1) * self.n_hidden)
+        self.neighborhood_size_w2 = int(self.neighborhood_size * (self.n_hidden+1) * self.n_outputs)
+
+    def get_neighborhood(self):
+        idces_w = torch.cat((torch.randint(0,self.n_inputs+1,(self.neighborhood_size_w1,1)), torch.randint(0,self.n_hidden,(self.neighborhood_size_w1,1))), dim=1)
+        idces_b1 = idces_w[idces_w[:,0]==self.n_inputs][:,1]
+        idces_w1 = idces_w[idces_w[:,0]<self.n_inputs]
+        idces_w = torch.cat((torch.randint(0,self.n_hidden+1,(self.neighborhood_size_w2,1)), torch.randint(0,self.n_outputs,(self.neighborhood_size_w2,1))), dim=1)
+        idces_b2 = idces_w[idces_w[:,0]==self.n_hidden][:,1]
+        idces_w2 = idces_w[idces_w[:,0]<self.n_hidden]
+        return idces_w1, idces_b1, idces_w2, idces_b2
+
+    def getParamLine(self, neighborhood, model):
+        return None
+
     def update(self, model, neighborhood, proposal):
-        model.linears[0].weight.data[neighborhood] *= -1
-        model.linears[0].bias.data[neighborhood] *= -1
+        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
+        model.linears[0].weight.data[idces_w1[:,1],idces_w1[:,0]] *= -1
+        model.linears[0].bias.data[idces_b1] *= -1
+        model.linears[1].weight.data[idces_w2[:,1],idces_w2[:,0]] *= -1
+        model.linears[1].bias.data[idces_b2] *= -1
 
     def undo(self, model, neighborhood, proposal):
-        model.linears[0].weight.data[neighborhood] *= -1
-        model.linears[0].bias.data[neighborhood] *= -1
-
+        self.update(model, neighborhood, proposal)
 
 class OneHiddenSelector(Selector):
     neighborhood_size = None
