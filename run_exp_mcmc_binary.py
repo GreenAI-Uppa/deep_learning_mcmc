@@ -82,8 +82,6 @@ else:
     exp_name = '_'.join(( exp_name, str(params["optimizer"]['lamb'])))
 if args.measure_power:
     outdir_power = exp_name+'_power'
-    if os.path.isdir(outdir_power):
-        continue
     p, q = measure_utils.measure_yourself(outdir=outdir_power, period=2)
 training_time = 0
 eval_time = 0
