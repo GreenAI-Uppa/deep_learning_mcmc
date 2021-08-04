@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import torch
+import collections
 
 class Optimizer(ABC):
     def __init__(self, data_points_max = 1000000000):
@@ -65,7 +66,8 @@ class MCMCOptimizer(Optimizer):
     def train_1_epoch(self, dataloader, model, loss_fn, optimizer, verbose=False):
         """
         """
-        acceptance_ratio,  num_items_read, explo_ratio = 0, 0, 0
+        num_items_read = 0
+        acceptance_ratio = Acceptance_ratio()
         device = next(model.parameters()).device
         for batch, (X, y) in enumerate(dataloader):
             if self.data_points_max <= num_items_read:
@@ -75,11 +77,8 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptances = self.train_1_batch(X, y, model, loss_fn, verbose=verbose)
-            if len(acceptances) == 2:
-                acceptance_ratio += acceptances[0]
-                explo_ratio += acceptances[1]
-        return acceptance_ratio / (batch+1), explo_ratio / (batch+1)
+            acceptance_ratio += self.train_1_batch(X, y, model, loss_fn, verbose=verbose)
+        return acceptance_ratio
 
     def train_1_batch(self, X, y, model, loss_fn, verbose=False):
         """
@@ -99,7 +98,7 @@ class MCMCOptimizer(Optimizer):
         model : optimised model (modified by reference)
         """
         device = next(model.parameters()).device
-        accepts, not_accepts, explo  = 0., 0., 0. # to keep track of the acceptance ratop
+        ar = Acceptance_ratio()
         pred = model(X)
         loss = loss_fn(pred,y).item()
         for i in range(self.iter_mcmc):
@@ -123,22 +122,56 @@ class MCMCOptimizer(Optimizer):
             rho  = min(1, data_term * student_ratio)
             if verbose:
                 print(i, loss, loss_prop)
+
+            key = self.selector.get_proposal_as_string(neighborhood)
+            ar.incr_prop_count(key) # recording that we tried to later compute the acceptance ratio
             if rho > torch.rand(1).to(device):
               # accepting, keeping the new value of the loss
-              accepts += 1
+              ar.incr_acc_count(key)
+              """
               if loss < loss_prop:
-                  explo += 1
+                  ar.increment(key+"_exploration")
+              """
               loss = loss_prop
             else:
               # not accepting, so undoing the change
-              not_accepts += 1
               self.selector.undo(model, neighborhood, epsilon)
-        acceptance_ratio = accepts / (not_accepts + accepts)
-        if accepts == 0:
-            explo_ratio = 0
-        else:
-            explo_ratio = explo / accepts
-        return acceptance_ratio, explo_ratio
+        return ar
+
+
+class Acceptance_ratio():
+    def __init__(self):
+        self.proposal_accepted = collections.Counter()
+        self.proposal_count = collections.Counter()
+
+    def incr_prop_count(self, key):
+        self.proposal_count[key] += 1
+
+    def incr_acc_count(self, key):
+        self.proposal_accepted[key] += 1
+
+    def __add__(self, acceptance_ratio):
+        result = Acceptance_ratio()
+        for k, v in self.proposal_accepted.items():
+            result.proposal_accepted[k] = v
+        for k, v in acceptance_ratio.proposal_accepted.items():
+            if k not in result.proposal_accepted:
+                result.proposal_accepted[k] = 0
+            result.proposal_accepted[k] += v
+        for k, v in self.proposal_count.items():
+            result.proposal_count[k] = v
+        for k, v in acceptance_ratio.proposal_count.items():
+            if k not in result.proposal_count:
+                result.proposal_count[k] = 0
+            result.proposal_count[k] += v
+        return result
+
+    def __str__(self):
+        result = ["acceptance ratios : "]
+        for k, v in self.proposal_count.items():
+            result.append(k + ": " + str(self.proposal_accepted[k]/v))
+        return '\n'.join(result)
+
 
 class MCMCSmallNei(MCMCOptimizer):
     def train_1_batch(self, X, y, model, loss_fn):

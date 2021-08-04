@@ -35,6 +35,10 @@ class Selector(ABC):
     def update(model, neighborhood, proposal):
         pass
 
+    def get_proposal_as_string(self, neighborhood):
+        return "accepted"
+
+
 class RandomSelector(Selector):
     def __init__(self, neighborhood_size):
         self.neighborhood_size = neighborhood_size
@@ -93,6 +97,44 @@ class BinSelector(RandomSelector):
     def undo(self, model, neighborhood, proposal):
         self.update(model, neighborhood, proposal)
 
+class Bin1HSelector1(RandomSelector):
+    neighborhood_size = None
+    def __init__(self, sizes: Tuple[int, ...], neighborhood_size: int):
+        """
+        neighborhood_size : percentage over the number of parameters between 0 and 1.
+
+        """
+        self.neighborhood_size = neighborhood_size
+        self.n_inputs, self.n_hidden, self.n_outputs = sizes
+
+    def get_neighborhood(self):
+        if torch.rand(1) > 0.1:
+            layer_idx = 0
+            idces_w = torch.cat((torch.randint(0,self.n_hidden,(self.neighborhood_size,1)), torch.randint(0,self.n_inputs+1,(self.neighborhood_size,1))), dim=1)
+            idces_b = idces_w[idces_w[:,0]==self.n_inputs][:,1]
+            idces_w = idces_w[idces_w[:,0]<self.n_inputs]
+        else:
+            layer_idx = 1
+            idces_w = torch.cat((torch.randint(0,self.n_outputs,(self.neighborhood_size,1)), torch.randint(0,self.n_hidden+1,(self.neighborhood_size,1))), dim=1)
+            idces_b = idces_w[idces_w[:,0]==self.n_hidden][:,1]
+            idces_w = idces_w[idces_w[:,0]<self.n_hidden]
+        return layer_idx, idces_w, idces_b
+
+    def getParamLine(self, neighborhood, model):
+        return None
+
+    def get_proposal_as_string(self, neighborhood):
+        layer_idx, idces_w, idces_b = neighborhood
+        return 'layer_'+str(layer_idx)
+
+    def update(self, model, neighborhood, proposal):
+        layer_idx, idces_w, idces_b = neighborhood
+        model.linears[layer_idx].weight.data[idces_w[:,0],idces_w[:,1]] *= -1
+        model.linears[layer_idx].bias.data[idces_b] *= -1
+
+    def undo(self, model, neighborhood, proposal):
+        self.update(model, neighborhood, proposal)
+
 
 class Bin1HSelector(RandomSelector):
     neighborhood_size = None
@@ -101,7 +143,6 @@ class Bin1HSelector(RandomSelector):
         neighborhood_size : percentage over the number of parameters between 0 and 1.
 
         """
-        self.neighborhood_size = neighborhood_size
         self.n_inputs, self.n_hidden, self.n_outputs = sizes
         self.neighborhood_size_w1 = int(self.neighborhood_size * (self.n_inputs+1) * self.n_hidden)
         self.neighborhood_size_w2 = int(self.neighborhood_size * (self.n_hidden+1) * self.n_outputs)
