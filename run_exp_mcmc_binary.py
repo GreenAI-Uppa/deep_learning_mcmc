@@ -7,7 +7,7 @@ import torch
 import numpy as np, math
 #import sys
 #sys.path.insert()
-from deep_learning_mcmc import nets, optimizers, stats, utils
+from deep_learning_mcmc import nets, optimizers, stats, selector 
 from power_consumption_measure import measure_utils, model_complexity
 import argparse
 
@@ -61,7 +61,7 @@ use_gradient = params['optimizer']["name"] == 'grad'
 if params["optimizer"]["name"] == "grad":
     optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
 else:
-    selector =  utils.build_selector(params["optimizer"]["selector"], layer_sizes)
+    selector =  selector.build_selector(params["optimizer"]["selector"], layer_sizes)
     sampler = stats.build_distr(params["optimizer"]["sampler"])
     prior = stats.build_distr(params["optimizer"]["prior"])
     optimizer = optimizers.MCMCOptimizer(sampler, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=prior, selector=selector)

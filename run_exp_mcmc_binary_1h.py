@@ -5,9 +5,7 @@ from torchvision.transforms import ToTensor
 import json
 import torch
 import numpy as np, math
-#import sys
-#sys.path.insert()
-from deep_learning_mcmc import nets, optimizers, stats, selector
+from deep_learning_mcmc import nets, optimizers, stats, selector 
 from power_consumption_measure import measure_utils, model_complexity
 import argparse
 
@@ -73,7 +71,7 @@ loss_fn = nets.my_mse_loss
 num_simu = 10
 results = []
 
-model = nets.MLP(layer_sizes)
+model = nets.BinaryNetwork(layer_sizes, activations=['Softmax', 'Softmax'])
 model = model.to(device)
 exp_name = params['exp_name']
 if use_gradient:
@@ -99,7 +97,6 @@ for t in range(epochs):
     result['training_time'] = time.time() - start_epoch
     result['end_training_epoch'] = datetime.datetime.now().__str__() 
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
-    print("time of training one epoch: ",result['training_time'])
     if use_gradient:
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     else:
