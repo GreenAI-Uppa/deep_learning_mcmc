@@ -36,7 +36,7 @@ print('generating neighborhood', selector.get_neighborhood())
 
 # setting the optimizer
 st_prop = stats.BinarySampler()
-optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=500, lamb=10000000, prior=st_prop, selector=selector)
+optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=2000, lamb=10000000, prior=st_prop, selector=selector)
 
 loss_fn = nets.my_mse_loss
 #loss_fn = nets.nn.CrossEntropyLoss()

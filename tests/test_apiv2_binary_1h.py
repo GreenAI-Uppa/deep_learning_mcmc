@@ -25,20 +25,18 @@ test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=12)
 # setting the model
 input_size = training_data.data.shape[1] * training_data.data.shape[2] * training_data.data.shape[3]
 output_size = len(training_data.classes)
-layer_sizes = [input_size, output_size]
+layer_sizes = [input_size, 100, output_size]
 
-model = nets.MLP2(layer_sizes, binary_flags = [False], activations = ['ReLU'])
+model = nets.MLP2(layer_sizes, binary_flags = [True, True], activations = ['Sigmoid', 'Softmax'])
 
-config = {'name':'LinearSelector', 'layer_distr':[1]}
+config = {'name':'MixedSelector', 'neighborhood_size': 1, 'layer_distr':[0.9, 0.1]}
 selector = selector.build_selector(layer_sizes, config)
 print('generating layer index',selector.get_layer_idx())
 print('generating neighborhood', selector.get_neighborhood())
 
 # setting the optimizer
-student_variance_prop = 0.00000000001
-st_prop = stats.Student(student_variance_prop)
-st_prior = stats.Student(student_variance_prop)
-optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=500, lamb=10000000, prior=st_prior, selector=selector)
+st_prop = stats.BinarySampler()
+optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=2000, lamb=10000000, prior=st_prop, selector=selector)
 
 loss_fn = nets.my_mse_loss
 #loss_fn = nets.nn.CrossEntropyLoss()
@@ -54,7 +52,7 @@ start_all = time.time()
 for t in range(epochs):
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
-    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=False)
+    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=True)
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f}")# \n Acceptance ratio: {acceptance_ratio:>2f}")
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)

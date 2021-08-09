@@ -84,7 +84,6 @@ class MixedSelector(Selector):
 
 class LinearSelector(MixedSelector):
     neighborhood_size = None
-
     def set_neighborhood_size(self, config):
         self.neighborhood_size = self.sizes[0]+1
 
@@ -95,49 +94,53 @@ class LinearSelector(MixedSelector):
         idces_b = idx_row
         return layer_idx, idces_w, idces_b
 
-class OneHiddenSelector2(LinearSelector):
-    def get_neighborhood(self):
-        layer_idx = self.get_layer_idx()
-        idx_row = torch.randint(0, self.sizes[layer_idx+1], (1,))
-        idces_w = torch.cat((torch.ones(self.sizes[layer_idx],1)*idx_row, torch.arange(0,self.sizes[layer_idx]).reshape(self.sizes[layer_idx], 1) ),dim=1).long()
-        idces_b = idx_row
-        return layer_idx, idces_w, idces_b
+class OneHiddenSelector(Selector):
+    def __init__(self, layer_sizes, config):
+        self.sizes = layer_sizes
 
     def get_neighborhood(self):
-        idx_hidden = idx_hidden = torch.randint(0, self.n_hidden, (1,))
+        n_input, n_hidden, n_output = self.sizes
+        idx_hidden = torch.randint(0, n_hidden, (1,))
         idx_output = -1
-        if torch.randint(0,int(self.n_hidden/self.n_output), (1,)) == 0: # the bias of the second layer will be selected
-            idx_output = torch.randint(0,self.n_output, (1,))
+        if torch.randint(0,int(n_hidden/n_output), (1,)) == 0: # the bias of the second layer will be selected
+            idx_output = torch.randint(0,n_output, (1,))
+        idces_w1 = torch.cat((torch.ones(n_input,1)*idx_hidden, torch.arange(0,n_input).reshape(n_input, 1) ),dim=1).long()
+        idces_b1 = idx_hidden
+        idces_w2 = torch.cat((torch.arange(0,n_output).reshape(n_output, 1), torch.ones(n_output,1)*idx_hidden ), dim=1).long()
         if idx_output == -1:
-            self.neighborhood_size = self.n_input + 1 + self.n_output
+            idces_b2 = torch.Tensor([])
         else:
-            self.neighborhood_size = self.n_input + 1 + self.n_output + 1
-        return idx_hidden, idx_output
-
-
-class LinearSelector2(MixedSelector):
-    neighborhood_size = None
-    def __init__(self, sizes, config):
-        self.neighborhood_size, self.n_rows = sizes
-        self.neighborhood_size += 1
-
-    def get_neighborhood(self):
-        idx_row = torch.randint(0, self.n_rows, (1,))
-        return idx_row
+            idces_b2 = torch.Tensor([idx_output]).long()
+        self.set_neighborhood_size((idces_w1, idces_b1, idces_w2, idces_b2))
+        return idces_w1, idces_b1, idces_w2, idces_b2
 
     def getParamLine(self, neighborhood, model):
-        params_line = torch.cat((model.linears[0].weight.data[neighborhood][0],model.linears[0].bias.data[neighborhood]))
-        return params_line
+        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
+        w1 = model.linears[0].weight.data[idces_w1[:,0],idces_w1[:,1]]
+        b1 = model.linears[0].bias.data[idces_b1]
+        w2 = model.linears[1].weight.data[idces_w2[:,0],idces_w2[:,1]]
+        if idces_b2.shape[0] == 0:
+            return torch.cat((w1, b1, w2))
+        else:
+            b2 = model.linears[0].bias.data[idces_b2]
+            return torch.cat((w1, b1, w2, b2))
+
+    def set_neighborhood_size(self, neighborhood):
+        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
+        self.neighborhood_size = idces_w1.shape[0] + 1 + idces_w2.shape[0] + idces_b2.shape[0]
 
     def update(self, model, neighborhood, proposal):
-        model.linears[0].weight.data[neighborhood] += proposal[:-1]
-        model.linears[0].bias.data[neighborhood] += proposal[-1]
+        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
+        model.linears[0].update((idces_w1, idces_b1), proposal[:idces_w1.shape[0]+1])
+        model.linears[1].update((idces_w2, idces_b2), proposal[idces_w1.shape[0]+1:])
 
     def undo(self, model, neighborhood, proposal):
-        model.linears[0].weight.data[neighborhood] -= proposal[:-1]
-        model.linears[0].bias.data[neighborhood] -= proposal[-1]
+        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
+        model.linears[0].undo((idces_w1, idces_b1), proposal[:idces_w1.shape[0]+1])
+        model.linears[1].undo((idces_w2, idces_b2), proposal[idces_w1.shape[0]+1:])
+]
 
-class BinLinSelector(LinearSelector):
+class BinLinSelector_old(LinearSelector):
     def update(self, model, neighborhood, proposal):
         model.linears[0].weight.data[neighborhood] *= -1
         model.linears[0].bias.data[neighborhood] *= -1
@@ -146,7 +149,7 @@ class BinLinSelector(LinearSelector):
         model.linears[0].weight.data[neighborhood] *= -1
         model.linears[0].bias.data[neighborhood] *= -1
 
-class BinSelector(Selector):
+class BinSelector_old(Selector):
     neighborhood_size = None
     def __init__(self, sizes, config):
         super(BinSelector, self).__init__(config)
@@ -171,7 +174,7 @@ class BinSelector(Selector):
 
 
 
-class Bin1HSelector1(Selector):
+class Bin1HSelector1_old(Selector):
     neighborhood_size = None
     def __init__(self, sizes: Tuple[int, ...], config: dict):
         """
@@ -220,7 +223,7 @@ class Bin1HSelector1(Selector):
             model.linears[layer_idx].bias.data[idces_b] -= proposal[len(idces_w):]
 
 
-class Bin1HSelector(Selector):
+class Bin1HSelector_old(Selector):
     neighborhood_size = None
     def __init__(self, sizes: Tuple[int, ...], config: dict):
         """
@@ -254,7 +257,7 @@ class Bin1HSelector(Selector):
     def undo(self, model, neighborhood, proposal):
         self.update(model, neighborhood, proposal)
 
-class OneHiddenSelector(Selector):
+class OneHiddenSelector_old(Selector):
     neighborhood_size = None
     def __init__(self, layer_sizes, config):
         self.n_input, self.n_hidden, self.n_output = layer_sizes

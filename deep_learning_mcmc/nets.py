@@ -29,12 +29,14 @@ class Linear4MCMC(nn.Linear):
     def update(self, neighborhood, proposal):
         idces_w, idces_b = neighborhood
         self.weight.data[idces_w[:,0],idces_w[:,1]] += proposal[:idces_w.shape[0]]
-        self.bias.data[idces_b] += proposal[idces_w.shape[0]:]
+        if idces_b.shape[0] !=0 :
+            self.bias.data[idces_b] += proposal[idces_w.shape[0]:]
 
     def undo(self, neighborhood, proposal):
         idces_w, idces_b = neighborhood
         self.weight.data[idces_w[:,0],idces_w[:,1]] -= proposal[:idces_w.shape[0]]
-        self.bias.data[idces_b] -= proposal[idces_w.shape[0]:]
+        if idces_b.shape[0] !=0 :
+            self.bias.data[idces_b] -= proposal[idces_w.shape[0]:]
 
 class MLP(nn.Module):
     def __init__(self, sizes, activations='ReLU'):
