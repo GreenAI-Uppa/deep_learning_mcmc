@@ -1,16 +1,18 @@
 {
         "batch_size": 50000,
         "epochs": 1000,
-        "exp_name": "mcmc_linear_binary",
+        "exp_name": "mcmc_1h_binary",
         "architecture": {
-                "boolean_flags": [1],
-                "activations" : ["Softmax"]
+                "boolean_flags": [1, 1],
+                "activations" : ["Sigmoid", "Softmax"],
+                "hidden_size" : 100
         },
         "optimizer": {
                 "name": "mcmc",
                 "selector" : {
                     "name": "MixedSelector",
-                    "neighborhood_size":1
+                    "neighborhood_size":1,
+                    "layer_distr" : [0.9, 0.1]
                 },
                 "sampler" : {
                     "name" : "BinarySampler"
