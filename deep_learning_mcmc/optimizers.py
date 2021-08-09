@@ -124,7 +124,7 @@ class MCMCOptimizer(Optimizer):
                 print(i, loss, loss_prop)
 
             key = self.selector.get_proposal_as_string(neighborhood)
-            ar.incr_prop_count(key) # recording that we tried to later compute the acceptance ratio
+            ar.incr_prop_count(key) # recording so that we can later compute the acceptance ratio
             if rho > torch.rand(1).to(device):
               # accepting, keeping the new value of the loss
               ar.incr_acc_count(key)
