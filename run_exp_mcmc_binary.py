@@ -73,7 +73,7 @@ loss_fn = nets.my_mse_loss
 num_simu = 10
 results = []
 
-model = nets.BinaryNetwork(layer_sizes, activations='Softmax')
+model = nets.BinaryNetwork(layer_sizes, [True], activations='Softmax')
 model = model.to(device)
 exp_name = params['exp_name']
 if use_gradient:
@@ -103,7 +103,7 @@ for t in range(epochs):
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     else:
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
-        print("Acceptance ratio",acceptance_ratio[0],"exploration",acceptance_ratio[1])
+        print("Acceptance ratio",acceptance_ratio)
     if not use_gradient:
         result['accept_ratio'] = acceptance_ratio
     result['train_loss'] = loss
