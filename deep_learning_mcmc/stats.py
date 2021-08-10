@@ -11,8 +11,33 @@ def build_distr(config):
     if selector_name == "Student":
         variance = config["variance"]
         return getattr(current_module, selector_name)(variance)
-    else:
+    elif selector_name=="BinarySampler":
         return getattr(current_module, selector_name)()
+    else:
+        variance = config["variance"]
+        real_sampler = Student(variance)
+        binary_sampler = BinarySampler()
+        return MixedSampler(real_sampler, binary_sampler)
+
+class MixedSampler(object):
+    def __init__(self, real_sampler, binary_sampler):
+        self.real_sampler = real_sampler
+        self.binary_sampler = binary_sampler
+
+    def sample(self, neighborhood):
+        is_binary, neighborhood_size = neighborhood
+        if is_binary:
+            return self.binary_sampler.sample(neighborhood_size)
+        else:
+            return self.real_sampler.sample(neighborhood_size)
+
+    def get_ratio(self, epsilon, params, neighborhood_info):
+        is_binary, _ = neighborhood_info
+        if is_binary:
+            return self.binary_sampler.get_ratio(epsilon, params, neighborhood_info)
+        else:
+            return self.real_sampler.get_ratio(epsilon, params, neighborhood_info)
+
 
 class Student(object):
     """
@@ -71,7 +96,7 @@ class Student(object):
         d = 1. * Num / Denom
         return d
 
-    def get_ratio(self, epsilon, params):
+    def get_ratio(self, epsilon, params, neighborhood_info):
       """
       compute the likelihood ratio of two variables
                student(params[i] + epsilon[i])
@@ -94,5 +119,5 @@ class Student(object):
 class BinarySampler(object):
     def sample(self, n):
         return None
-    def get_ratio(self, epsilon, params):
+    def get_ratio(self, epsilon, params, neighborhood_info):
         return 1
