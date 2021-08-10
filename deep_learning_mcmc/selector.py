@@ -138,9 +138,9 @@ class OneHiddenSelector(Selector):
         idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
         model.linears[0].undo((idces_w1, idces_b1), proposal[:idces_w1.shape[0]+1])
         model.linears[1].undo((idces_w2, idces_b2), proposal[idces_w1.shape[0]+1:])
-]
 
-class BinLinSelector_old(LinearSelector):
+
+class BinLinSelector_odd(LinearSelector):
     def update(self, model, neighborhood, proposal):
         model.linears[0].weight.data[neighborhood] *= -1
         model.linears[0].bias.data[neighborhood] *= -1

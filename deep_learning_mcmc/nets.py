@@ -38,7 +38,7 @@ class Linear4MCMC(nn.Linear):
         if idces_b.shape[0] !=0 :
             self.bias.data[idces_b] -= proposal[idces_w.shape[0]:]
 
-class MLP(nn.Module):
+class MLP_old(nn.Module):
     def __init__(self, sizes, activations='ReLU'):
         """
         builds a multi layer perceptron
@@ -71,7 +71,7 @@ class MLP(nn.Module):
         return x
 
 
-class MLP2(nn.Module):
+class MLP(nn.Module):
     def __init__(self, sizes, binary_flags=None, activations=None):
         """
         builds a multi layer perceptron
@@ -80,7 +80,7 @@ class MLP2(nn.Module):
         """
         if len(sizes)< 2:
             raise Exception("sizes argument is" +  sizes.__str__() + ' . At least two elements are needed to have the input and output sizes')
-        super(MLP2, self).__init__()
+        super(MLP, self).__init__()
         self.flatten = nn.Flatten()
         input_size, output_size = sizes[0], sizes[-1]
         self.linears = nn.ModuleList()
