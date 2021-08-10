@@ -104,7 +104,6 @@ class MCMCOptimizer(Optimizer):
         for i in range(self.iter_mcmc):
             # selecting a line at random
             neighborhood = self.selector.get_neighborhood()
-            layer_idx, idces_w, idces_b = neighborhood
             params_line = self.selector.getParamLine(neighborhood, model)
             epsilon = self.sampler.sample(self.selector.neighborhood_info)
             if epsilon is not None:
