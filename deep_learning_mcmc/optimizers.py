@@ -140,6 +140,9 @@ class MCMCOptimizer(Optimizer):
 
 
 class Acceptance_ratio():
+    """
+    wrapper around a counter to maintain multiple aspect ratios
+    """
     def __init__(self):
         self.proposal_accepted = collections.Counter()
         self.proposal_count = collections.Counter()
@@ -150,7 +153,13 @@ class Acceptance_ratio():
     def incr_acc_count(self, key):
         self.proposal_accepted[key] += 1
 
+    def to_dict(self):
+        return dict([ (k,str(self.proposal_accepted[k]/v)) for (k, v) in self.proposal_count.items()])
+
     def __add__(self, acceptance_ratio):
+        """
+        redefining the + operator
+        """
         result = Acceptance_ratio()
         for k, v in self.proposal_accepted.items():
             result.proposal_accepted[k] = v
@@ -167,6 +176,9 @@ class Acceptance_ratio():
         return result
 
     def __str__(self):
+        """
+        redefining the output of the printing
+        """
         result = ["acceptance ratios : "]
         for k, v in self.proposal_count.items():
             result.append(k + ": " + str(self.proposal_accepted[k]/v))
