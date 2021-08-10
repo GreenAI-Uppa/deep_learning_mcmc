@@ -27,9 +27,9 @@ input_size = training_data.data.shape[1] * training_data.data.shape[2] * trainin
 output_size = len(training_data.classes)
 layer_sizes = [input_size, 100, output_size]
 
-model = nets.MLP2(layer_sizes, binary_flags = [False, False], activations = ['ReLU', 'ReLU'])
+model = nets.MLP(layer_sizes, binary_flags = [False, False], activations = ['ReLU', 'ReLU'])
 
-config = {'name':'OneHiddenSelector2', 'layer_distr':[1, 1]}
+config = {'name':'OneHiddenSelector', 'layer_distr':[1, 1]}
 selector = selector.build_selector(layer_sizes, config)
 print('generating neighborhood', selector.get_neighborhood())
 

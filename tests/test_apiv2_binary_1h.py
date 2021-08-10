@@ -27,9 +27,9 @@ input_size = training_data.data.shape[1] * training_data.data.shape[2] * trainin
 output_size = len(training_data.classes)
 layer_sizes = [input_size, 100, output_size]
 
-model = nets.MLP2(layer_sizes, binary_flags = [True, True], activations = ['Sigmoid', 'Softmax'])
+model = nets.MLP(layer_sizes, binary_flags = [True, True], activations = ['Sigmoid', 'Softmax'])
 
-config = {'name':'MixedSelector', 'neighborhood_size': 1, 'layer_distr':[0.9, 0.1]}
+config = {'name':'UniformSelector', 'neighborhood_size': 1, 'layer_distr':[0.9, 0.1]}
 selector = selector.build_selector(layer_sizes, config)
 print('generating layer index',selector.get_layer_idx())
 print('generating neighborhood', selector.get_neighborhood())
