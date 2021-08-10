@@ -126,7 +126,6 @@ class MixedSelector(UniformSelector):
         """
 
     def getParamLine(self, neighborhood, model):
-        neighborhood = super(MixedSelector, self).get_neighborhood()
         self.set_neighborhood_info(neighborhood, model)
         layer_idx, idces_w, idces_b = neighborhood
         if model.linears[layer_idx].is_binary:

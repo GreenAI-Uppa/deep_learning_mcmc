@@ -38,7 +38,6 @@ class MixedSampler(object):
         else:
             return self.real_sampler.get_ratio(epsilon, params, neighborhood_info)
 
-
 class Student(object):
     """
     univariate student distribution
