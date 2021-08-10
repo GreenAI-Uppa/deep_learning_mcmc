@@ -38,39 +38,6 @@ class Linear4MCMC(nn.Linear):
         if idces_b.shape[0] !=0 :
             self.bias.data[idces_b] -= proposal[idces_w.shape[0]:]
 
-class MLP_old(nn.Module):
-    def __init__(self, sizes, activations='ReLU'):
-        """
-        builds a multi layer perceptron
-        sizes : list of the size of the different layers
-        activations : can be a string or a list of string. see torch.nn for possible values (ReLU, Softmax,...)
-        """
-        if len(sizes)< 2:
-            raise Exception("sizes argument is" +  sizes.__str__() + ' . At least two elements are needed to have the input and output sizes')
-        super(MLP, self).__init__()
-        self.flatten = nn.Flatten()
-        input_size = sizes[0]
-        output_size = sizes[-1]
-        self.linears = nn.ModuleList()
-        self.activations = []
-        for i in range(1, len(sizes)):
-            self.linears.append(nn.Linear(sizes[i-1], sizes[i]))
-            if isinstance(activations, str):
-                act = activations
-            else:
-                act = activations[i-1]
-            activation = getattr(nn, act)()
-            self.activations.append(activation)
-
-    def forward(self, x):
-        x = self.flatten(x)
-        for linear, activation in zip(self.linears, self.activations):
-            x = linear(x)
-            if activation is not None:
-                x = activation(x)
-        return x
-
-
 class MLP(nn.Module):
     def __init__(self, sizes, binary_flags=None, activations=None):
         """
@@ -105,23 +72,6 @@ class MLP(nn.Module):
             if activation is not None:
                 x = activation(x)
         return x
-
-class BinaryNetwork(MLP):
-    def __init__(self, sizes,  binary_flags, activations='ReLU'):
-        """
-        builds a multi layer perceptron
-        sizes : list of the size of the different layers
-        binary_flags : list of booleans indicating whether or not the corresponding layer has binary weights
-        activations : can be a string or a list of string. see torch.nn for possible values (ReLU, Softmax,...)
-        """
-        if len(sizes)< 2:
-            raise Exception("sizes argument is" +  sizes.__str__() + ' . At least two elements are needed to have the input and output sizes')
-        super(BinaryNetwork, self).__init__(sizes, activations=activations)
-        self.binary_flags = binary_flags
-        for linear, binary_flag in zip(self.linears, self.binary_flags):
-            if binary_flag:
-                linear.weight.data = np.sign(linear.weight.data)
-                linear.bias.data = np.sign(linear.bias.data)
 
 mse_loss = nn.MSELoss()
 def my_mse_loss(x,y):

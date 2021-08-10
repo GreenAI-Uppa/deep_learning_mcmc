@@ -119,10 +119,7 @@ class MixedSelector(UniformSelector):
         layer_idx, idces_w, idces_b = neighborhood
         self.neighborhood_info = model.linears[layer_idx].is_binary, self.neighborhood_size
         """
-        if  model.linears[layer_idx].is_binary:
-            self.neighborhood_info = True, self.neighborhood_size['binary']
-        else:
-            self.neighborhood_info = False, self.neighborhood_size['real']
+        self.neighborhood_info = model.linears[layer_idx].is_binary, self.neighborhood_size[layer_idx]
         """
 
     def getParamLine(self, neighborhood, model):
@@ -136,6 +133,12 @@ class MixedSelector(UniformSelector):
             return torch.cat((w,b))
 
 class OneHiddenSelector(Selector):
+    """
+    Selector which was used in the first experiment
+    It has the particularity that the two layers are sampled within the same mcmc iteration
+
+    It still there mostly for archive purposes and will be probably removed soon
+    """
     def __init__(self, layer_sizes, config):
         self.sizes = layer_sizes
 
@@ -179,46 +182,3 @@ class OneHiddenSelector(Selector):
         idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
         model.linears[0].undo((idces_w1, idces_b1), proposal[:idces_w1.shape[0]+1])
         model.linears[1].undo((idces_w2, idces_b2), proposal[idces_w1.shape[0]+1:])
-
-class OneHiddenSelector_old(Selector):
-    neighborhood_size = None
-    def __init__(self, layer_sizes, config):
-        self.n_input, self.n_hidden, self.n_output = layer_sizes
-
-    def get_neighborhood(self):
-        idx_hidden = idx_hidden = torch.randint(0, self.n_hidden, (1,))
-        idx_output = -1
-        if torch.randint(0,int(self.n_hidden/self.n_output), (1,)) == 0: # the bias of the second layer will be selected
-            idx_output = torch.randint(0,self.n_output, (1,))
-        if idx_output == -1:
-            self.neighborhood_size = self.n_input + 1 + self.n_output
-        else:
-            self.neighborhood_size = self.n_input + 1 + self.n_output + 1
-        return idx_hidden, idx_output
-
-    def getParamLine(self, neighborhood, model):
-        """
-        given the idx of a hidden neuron, it selects the corresponding weights associated with it
-        """
-        idx_hidden, idx_output = neighborhood
-        if idx_output == -1:
-            params_line = torch.cat((model.linears[0].weight.data[idx_hidden][0], model.linears[0].bias.data[idx_hidden], model.linears[1].weight.data[:,idx_hidden][:,0]))
-        else:
-            params_line = torch.cat((model.linears[0].weight.data[idx_hidden][0],model.linears[0].bias.data[idx_hidden], model.linears[1].weight.data[:,idx_hidden][:,0], model.linears[1].bias.data[idx_output]))
-        return params_line
-
-    def update(self, model, neighborhood, proposal):
-        idx_hidden, idx_output = neighborhood
-        model.linears[0].weight.data[idx_hidden] += proposal[:model.linears[0].weight.data.shape[1]]
-        model.linears[0].bias.data[idx_hidden] += proposal[model.linears[0].weight.data.shape[1]]
-        model.linears[1].weight.data[:,idx_hidden] += proposal[model.linears[0].weight.data.shape[1]+1:model.linears[0].weight.data.shape[1]+1+self.n_output].reshape(self.n_output,1)
-        if idx_output != -1:
-            model.linears[1].bias.data[idx_output] += proposal[-1]
-
-    def undo(self, model, neighborhood, proposal):
-        idx_hidden, idx_output = neighborhood
-        model.linears[0].weight.data[idx_hidden] -= proposal[:model.linears[0].weight.data.shape[1]]
-        model.linears[0].bias.data[idx_hidden] -= proposal[model.linears[0].weight.data.shape[1]]
-        model.linears[1].weight.data[:,idx_hidden] -= proposal[model.linears[0].weight.data.shape[1]+1:model.linears[0].weight.data.shape[1]+1+self.n_output].reshape(self.n_output,1)
-        if idx_output != -1:
-            model.linears[1].bias.data[idx_output] -= proposal[-1]
