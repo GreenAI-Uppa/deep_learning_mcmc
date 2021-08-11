@@ -31,6 +31,9 @@ class MixedSampler(object):
         else:
             return self.real_sampler.sample(neighborhood_size)
 
+    def get_lambda(self, neighborhood):
+        pass
+
     def get_ratio(self, epsilon, params, neighborhood_info):
         is_binary, _ = neighborhood_info
         if is_binary:

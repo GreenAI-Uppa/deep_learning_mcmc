@@ -29,14 +29,14 @@ layer_sizes = [input_size, output_size]
 
 model = nets.MLP(layer_sizes, binary_flags = [True], activations = ['Softmax'])
 
-config = {'name':'UniformSelector', 'neighborhood_size': 1, 'layer_distr':[1]}
-selector = selector.build_selector(layer_sizes, config)
-print('generating layer index',selector.get_layer_idx())
-print('generating neighborhood', selector.get_neighborhood())
+config = {'name':'UniformSelector', 'layer_conf': [{'layer_distr' : 1 , 'get_idx' : selector.get_idces_uniform_linear(1)}]}
+s = selector.build_selector(config)
+print('generating layer index',s.get_layer_idx())
+print('generating neighborhood', s.get_neighborhood(model))
 
 # setting the optimizer
 st_prop = stats.BinarySampler()
-optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=2000, lamb=10000000, prior=st_prop, selector=selector)
+optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=2000, lamb=10000000, prior=st_prop, selector=s)
 
 loss_fn = nets.my_mse_loss
 #loss_fn = nets.nn.CrossEntropyLoss()
@@ -52,7 +52,7 @@ start_all = time.time()
 for t in range(epochs):
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
-    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=True)
+    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=True)
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f}")# \n Acceptance ratio: {acceptance_ratio:>2f}")
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)

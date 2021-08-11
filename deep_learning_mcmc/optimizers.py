@@ -41,7 +41,7 @@ class GradientOptimizer(Optimizer):
         pred = model(X)
         los = loss_fn(pred, y)
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
-        for i, layer in enumerate(model.linears):
+        for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
             layer.weight.data -=  gg[2*i] * self.lr
             layer.bias.data -=  gg[2*i+1] * self.lr
 
@@ -63,7 +63,7 @@ class MCMCOptimizer(Optimizer):
             self.prior = prior
         self.selector = selector
 
-    def train_1_epoch(self, dataloader, model, loss_fn, optimizer, verbose=False):
+    def train_1_epoch(self, dataloader, model, loss_fn, verbose=False):
         """
         """
         num_items_read = 0
@@ -103,7 +103,7 @@ class MCMCOptimizer(Optimizer):
         loss = loss_fn(pred,y).item()
         for i in range(self.iter_mcmc):
             # selecting a line at random
-            neighborhood = self.selector.get_neighborhood()
+            neighborhood = self.selector.get_neighborhood(model)
             params_line = self.selector.getParamLine(neighborhood, model)
             epsilon = self.sampler.sample(self.selector.neighborhood_info)
             if epsilon is not None:
@@ -205,7 +205,7 @@ class MCMCSmallNei(MCMCOptimizer):
         model : optimised model (modified by reference)
         """
         device = next(model.parameters()).device
-        n_outputs, n_inputs = model.linears[0].weight.data.shape
+        n_outputs, n_inputs = model.layers[0].weight.data.shape
         accepts, not_accepts = 0., 0. # to keep track of the acceptance ratop
         pred = model(X)
         loss_prev = loss_fn(pred.double(),y).item()
@@ -225,10 +225,10 @@ class MCMCSmallNei(MCMCOptimizer):
             # getting the ratio of the students and the new value for the prediction. It depends whether it's a bias weight or a more general weight
             if idx_col == n_inputs: # changing the bias
                 pred_new[:,idx_row] = pred[:,idx_row] + epsilon[idx_row, idx_col]
-                student_ratio, _ = self.prior.get_ratio(epsilon[idx_row,idx_col], model.linears[0].bias.data[idx_row])
+                student_ratio, _ = self.prior.get_ratio(epsilon[idx_row,idx_col], model.layers[0].bias.data[idx_row])
             else:
                 pred_new[:,idx_row] = pred[:,idx_row] + Xflat[:,idx_col]*epsilon[idx_row, idx_col]
-                student_ratio = self.prior.get_ratio(epsilon[idx_row,idx_col], model.linears[0].weight.data[idx_row, idx_col])
+                student_ratio = self.prior.get_ratio(epsilon[idx_row,idx_col], model.layers[0].weight.data[idx_row, idx_col])
             # getting the new value for the loss
             loss_prop = loss_fn(pred_new.double(), y)
 
@@ -239,9 +239,9 @@ class MCMCSmallNei(MCMCOptimizer):
             if rho > torch.rand(1).to(device):
                 # accepting, keeping the new value of the loss
                 if idx_col==n_inputs:
-                    model.linears[0].bias.data[idx_row] += epsilon[idx_row, idx_col]
+                    model.layers[0].bias.data[idx_row] += epsilon[idx_row, idx_col]
                 else:
-                    model.linears[0].weight.data[idx_row, idx_col] += epsilon[idx_row, idx_col]
+                    model.layers[0].weight.data[idx_row, idx_col] += epsilon[idx_row, idx_col]
                 loss_prev = loss_prop
                 pred = pred_new
                 accepts += 1
@@ -276,7 +276,7 @@ class MCMCSmallNeiAppr(MCMCOptimizer):
         acceptance_ratio
         model : optimised model (modified by reference)
         """
-        n_outputs, n_inputs = model.linears[0].weight.data.shape
+        n_outputs, n_inputs = model.layers[0].weight.data.shape
         num_param = n_inputs * n_outputs + n_outputs # linear layer : inputs x outputs + bias weights
         batch_size = X.shape[0]
 
@@ -328,8 +328,8 @@ class MCMCSmallNeiAppr(MCMCOptimizer):
         student_ratios = self.prior.get_ratio(epsilon, torch.cat((model.linear.weight.data,model.linear.bias.data.reshape(n_outputs,1)), dim=1), do_mul=False) # (output_size X (input_size+1))
         rho = data_terms * student_ratios
         accepted_changes = rho > torch.rand(n_outputs,n_inputs+1).to(device)
-        model.linears[0].weight.data[accepted_changes[:,:-1]] = params_prop[:,:-1][accepted_changes[:,:-1]]
-        model.linears[0].bias.data[accepted_changes[:,-1]] = params_prop[:,-1][accepted_changes[:,-1]]
+        model.layers[0].weight.data[accepted_changes[:,:-1]] = params_prop[:,:-1][accepted_changes[:,:-1]]
+        model.layers[0].bias.data[accepted_changes[:,-1]] = params_prop[:,-1][accepted_changes[:,-1]]
         pred = model(X)
         loss_prev = loss_fn(pred,y).item()
         acceptance_ratio = float(accepted_changes.sum() / float(num_param))
