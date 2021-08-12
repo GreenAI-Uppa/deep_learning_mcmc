@@ -103,10 +103,7 @@ class UniformSelector(Selector):
     def getParamLine(self, neighborhood, model):
         layer_idx, idces = neighborhood
         self.set_neighborhood_info(idces, model.layers[layer_idx])
-        if model.layers[layer_idx].is_binary:
-            return None
-        else:
-            return model.layers[layer_idx].getParamLine(idces)
+        return model.layers[layer_idx].getParamLine(idces)
 
     def update(self, model, neighborhood, proposal):
         layer_idx, idces = neighborhood
@@ -129,13 +126,6 @@ class MixedSelector(UniformSelector):
     def set_neighborhood_info(self, idces, layer):
         self.neighborhood_info = layer.is_binary, layer.get_selected_size(idces)
 
-    def getParamLine(self, neighborhood, model):
-        layer_idx, idces = neighborhood
-        self.set_neighborhood_info(idces, model.layers[layer_idx])
-        if model.layers[layer_idx].is_binary:
-            return None
-        else:
-            return model.layers[layer_idx].getParamLine(idces)
 
 class OneHiddenSelector(Selector):
     """

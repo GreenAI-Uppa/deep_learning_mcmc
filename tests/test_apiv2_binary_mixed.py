@@ -30,9 +30,8 @@ layer_sizes = [input_size, 100, output_size]
 model = nets.MLP(layer_sizes, binary_flags = [True, False], activations = ['Sigmoid', 'Softmax'])
 
 #config = {'name':'MixedSelector', 'neighborhood_size': {'binary': 1, 'real':10}, 'layer_distr':[0.9, 0.1]}
-config = {'name':'MixedSelector', 'neighborhood_size': 1, 'layer_distr':[0.9, 0.1]}
-config = {'name':'UniformSelector', 'layer_conf': [{'layer_distr' : 0.9 , 'get_idx' : selector.get_idces_uniform_linear(1)}, {'layer_distr' : 0.1 , 'get_idx' : selector.get_idces_uniform_linear(40)}]}
-s= selector.build_selector(layer_sizes, config)
+config = {'name':'MixedSelector', 'layer_conf': [{'layer_distr' : 0.9 , 'get_idx' : selector.get_idces_uniform_linear(1)}, {'layer_distr' : 0.1 , 'get_idx' : selector.get_idces_uniform_linear(40)}]}
+s= selector.build_selector(config)
 print('generating layer index',s.get_layer_idx())
 print('generating neighborhood', s.get_neighborhood(model))
 
