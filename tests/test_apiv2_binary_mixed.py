@@ -7,12 +7,12 @@ import torch
 import numpy as np, math
 from deep_learning_mcmc import nets, optimizers, stats, selector 
 
-training_data = datasets.CIFAR10(root="/home/paul/data/pytorch_cifar10/",
+training_data = datasets.CIFAR10(root="/home/pgay/cifar/",
     train=True,
     download=True,
     transform=ToTensor())
 
-test_data = datasets.CIFAR10(root="/home/paul/data/pytorch_cifar10/",
+test_data = datasets.CIFAR10(root="/home/pgay/cifar/",
     train=False,
     download=True,
     transform=ToTensor())
