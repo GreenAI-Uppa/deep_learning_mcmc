@@ -49,16 +49,16 @@ class Conv2d4MCMC(nn.Conv2d):
 
 class BinaryConv2d(Conv2d4MCMC):
     is_binary = True
-    def __init__(self, input, output):
-        super(BinaryConv2d, self).__init__(input, output)
-        self.weight.data = np.sign(self.weight.data)
-        self.bias.data = np.sign(self.bias.data)
+    def __init__(self, *args, **kwargs):
+        super(BinaryConv2d, self).__init__(*args, **kwargs)
+        self.weight.data = torch.sign(self.weight.data)
+        self.bias.data = torch.sign(self.bias.data)
 
     def update(self, neighborhood, proposal):
         idces_w, idces_b = neighborhood
-        self.weight.data[idces_w[:,0],idces_w[:,1],idces_w[:,2],idces_w[:,3]] *= proposal[:idces_w.shape[0]]
+        self.weight.data[idces_w[:,0],idces_w[:,1],idces_w[:,2],idces_w[:,3]] *= -1
         if idces_b.shape[0] !=0 :
-            self.bias.data[idces_b] *= proposal[idces_w.shape[0]:]
+            self.bias.data[idces_b] *= -1
 
     def undo(self, neighborhood, proposal):
         self.update(neighborhood, proposal)
@@ -92,8 +92,8 @@ class BinaryLinear(Linear4MCMC):
     is_binary = True
     def __init__(self, input, output):
         super(BinaryLinear, self).__init__(input, output)
-        self.weight.data = np.sign(self.weight.data)
-        self.bias.data = np.sign(self.bias.data)
+        self.weight.data = torch.sign(self.weight.data)
+        self.bias.data = torch.sign(self.bias.data)
 
     def update(self, neighborhood, proposal):
         idces_w, idces_b = neighborhood

@@ -56,7 +56,7 @@ def get_idces_uniform_conv(neighborhood_size):
         idx_chan = torch.randint(0, channels, (neighborhood_size,1) )
         idx_k1 = torch.randint(0, k1, (neighborhood_size,1))
         idx_k2 = torch.randint(0, k2, (neighborhood_size,1))
-        idces_w = torch.cat((idx_f, idx_chan, idx_k1, idx_k2), dim=1)
+        idces_w = torch.cat((idx_f, idx_chan, idx_k1, idx_k2), dim=1).long()
         return idces_w, idx_filter
     return get_idx
 
