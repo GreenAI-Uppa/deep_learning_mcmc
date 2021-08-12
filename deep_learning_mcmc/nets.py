@@ -13,11 +13,49 @@ class Conv2d4MCMC(nn.Conv2d):
         if idces_b.shape[0] !=0 :
             self.bias.data[idces_b] += proposal[idces_w.shape[0]:]
 
+    def get_selected_size(self, idx_filter):
+        channels, k1, k2 = layer.weight.data[idx_filter].shape
+        return channels *k1 * k2 + 1 # number of coefficients in the filter, +  a bias
+
     def undo(self, neighborhood, proposal):
         idces_w, idces_b = neighborhood
-        self.weight.data[idces_w[:,0],idces_w[:,1]] -= proposal[:idces_w.shape[0]]
+        self.weight.data[idces_w[:,0],idces_w[:,1],idces_w[:,2],idces_w[:,3]] -= proposal[:idces_w.shape[0]]
         if idces_b.shape[0] !=0 :
             self.bias.data[idces_b] -= proposal[idces_w.shape[0]:]
+
+    def get_all_idx_flattened(self):
+        """
+        return a 4 x num_params tensor which contains the indices of one filter coefficients
+        """
+        channels, k1, k2 = self.weight.data[0].shape
+        idces_w = torch.ones(0,3)
+        for i in range(channels):
+            t1 = torch.ones((k1*k2,1)) * i
+            tmp = torch.ones(0,2)
+            for j in range(k1):
+                t2 = torch.ones((k2,1)) * j
+                t3 = torch.arange(0,k2).reshape(k2,1)
+                tmp = torch.cat((tmp, torch.cat((t2,t3), dim=1) ))
+            idces_w = torch.cat((idces_w, torch.cat((t1,tmp), dim=1) ))
+        idces_w = torch.cat((idces_w, torch.ones(k1*k2*channels,1)), dim=1)
+        return idces_w
+
+
+class BinaryConv2d(Conv2d4MCMC):
+    is_binary = True
+    def __init__(self, input, output):
+        super(BinaryConv2d, self).__init__(input, output)
+        self.weight.data = np.sign(self.weight.data)
+        self.bias.data = np.sign(self.bias.data)
+
+    def update(self, neighborhood, proposal):
+        idces_w, idces_b = neighborhood
+        self.weight.data[idces_w[:,0],idces_w[:,1],idces_w[:,2],idces_w[:,3]] *= proposal[:idces_w.shape[0]]
+        if idces_b.shape[0] !=0 :
+            self.bias.data[idces_b] *= proposal[idces_w.shape[0]:]
+
+    def undo(self, neighborhood, proposal):
+        self.update(neighborhood, proposal)
 
 class Linear4MCMC(nn.Linear):
     is_binary = False
@@ -101,12 +139,22 @@ class ConvNet(nn.Module):
         self.nb_filters = nb_filters
         self.channels = channels
         self.layers = nn.ModuleList()
-        if channels == 3:
-            self.conv1 = nn.Conv2d(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
+        if binary_flags[0]:
+            if channels == 3:
+                self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
+            else:
+                self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
         else:
-            self.conv1 = nn.Conv2d(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
+            if channels == 3:
+                self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
+            else:
+                self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
+
         self.layers.append(self.conv1)
-        self.fc1 = nn.Linear(self.nb_filters * 8 * 8, 10)
+        if binary_flags[1]:
+            self.fc1 = BinaryLinear(self.nb_filters * 8 * 8, 10)
+        else:
+            self.fc1 = nn.Linear4MCMC(self.nb_filters * 8 * 8, 10)
         self.layers.append(self.fc1)
         self.activations = []
         if activations is None:
@@ -114,11 +162,10 @@ class ConvNet(nn.Module):
         else:
             self.activations = [ getattr(nn, activations[i])() for i in range(len(self.layers)) ]
 
-
     def forward(self, x):
-        x = F.relu(self.conv1(x))
+        x = self.activations[0](self.conv1(x))
         x = x.view(-1, self.nb_filters * 8 * 8)
-        x = F.relu(self.fc1(x))
+        x = self.activations[1](self.fc1(x))
         return x
 
 mse_loss = nn.MSELoss()

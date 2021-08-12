@@ -121,7 +121,7 @@ class MCMCOptimizer(Optimizer):
 
             rho  = min(1, data_term * student_ratio)
             if verbose:
-                print("neighborhood:",neighborhood)
+                #print("neighborhood:",neighborhood)
                 print(i, loss, loss_prop)
 
             key = self.selector.get_proposal_as_string(neighborhood)

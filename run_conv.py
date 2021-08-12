@@ -113,7 +113,7 @@ for t in range(epochs):
     if use_gradient:
         optimizer.train_1_epoch(train_dataloader, model, loss_fn)
     else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=params['verbose'])
+        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=params['verbose'])
     result = {"epoch":t}
     end_epoch = time.time() 
     training_time += time.time() - start_epoch
