@@ -69,11 +69,19 @@ use_gradient = params['optimizer']["name"] == 'grad'
 if params["optimizer"]["name"] == "grad":
     optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
 else:
-    selector =  selector.build_selector(layer_sizes, params["optimizer"]["selector"])
+    config = {'name': params['optimizer']['selector']['name'], 'layer_conf':[]}
+    for layer_conf in params['optimizer']['selector']['layer_conf']:
+        layer_distr = layer_conf['layer_distr']
+        if 'get_idx_param' in layer_conf:
+            get_idx = getattr(selector, layer_conf['get_idx'])(layer_conf['get_idx_param'])
+        else:
+            get_idx = getattr(selector, layer_conf['get_idx'])()
+        config['layer_conf'].append({'layer_distr': layer_distr, 'get_idx': get_idx})
+    selector =  selector.build_selector(config)
     sampler = stats.build_distr(params["optimizer"]["sampler"])
     prior = stats.build_distr(params["optimizer"]["prior"])
     optimizer = optimizers.MCMCOptimizer(sampler, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=prior, selector=selector)
-input_image_size = (batch_size, training_data.data.shape[1], training_data.data.shape[2], training_data.data.shape[3]) 
+input_image_size = (batch_size, training_data.data.shape[1], training_data.data.shape[2], training_data.data.shape[3])
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
@@ -104,7 +112,7 @@ for t in range(epochs):
     if use_gradient:
         optimizer.train_1_epoch(train_dataloader, model, loss_fn)
     else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=params['verbose'])
+        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=params['verbose'])
     result = {"epoch":t}
     end_epoch = time.time() 
     training_time += time.time() - start_epoch
