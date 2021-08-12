@@ -13,9 +13,9 @@ class Conv2d4MCMC(nn.Conv2d):
         if idces_b.shape[0] !=0 :
             self.bias.data[idces_b] += proposal[idces_w.shape[0]:]
 
-    def get_selected_size(self, idx_filter):
-        channels, k1, k2 = layer.weight.data[idx_filter].shape
-        return channels *k1 * k2 + 1 # number of coefficients in the filter, +  a bias
+    def get_selected_size(self, idces):
+        idces_w, idces_b = idces
+        return idces_w.shape[0] + idces_b.shape[0]
 
     def undo(self, neighborhood, proposal):
         idces_w, idces_b = neighborhood
@@ -23,7 +23,13 @@ class Conv2d4MCMC(nn.Conv2d):
         if idces_b.shape[0] !=0 :
             self.bias.data[idces_b] -= proposal[idces_w.shape[0]:]
 
-    def get_all_idx_flattened(self):
+    def getParamLine(self, idces):
+        idces_w, idces_b = idces
+        w = self.weight.data[idces_w[:,0],idces_w[:,1],idces_w[:,2],idces_w[:,3]]
+        b = self.bias.data[idces_b]
+        return torch.cat((w,b))
+
+    def get_idx_flattened_1_filter(self, idx_filter):
         """
         return a 4 x num_params tensor which contains the indices of one filter coefficients
         """
@@ -37,7 +43,7 @@ class Conv2d4MCMC(nn.Conv2d):
                 t3 = torch.arange(0,k2).reshape(k2,1)
                 tmp = torch.cat((tmp, torch.cat((t2,t3), dim=1) ))
             idces_w = torch.cat((idces_w, torch.cat((t1,tmp), dim=1) ))
-        idces_w = torch.cat((idces_w, torch.ones(k1*k2*channels,1)), dim=1)
+        idces_w = torch.cat((torch.ones(k1*k2*channels,1)*idx_filter, idces_w), dim=1).long()
         return idces_w
 
 
@@ -154,7 +160,7 @@ class ConvNet(nn.Module):
         if binary_flags[1]:
             self.fc1 = BinaryLinear(self.nb_filters * 8 * 8, 10)
         else:
-            self.fc1 = nn.Linear4MCMC(self.nb_filters * 8 * 8, 10)
+            self.fc1 = Linear4MCMC(self.nb_filters * 8 * 8, 10)
         self.layers.append(self.fc1)
         self.activations = []
         if activations is None:

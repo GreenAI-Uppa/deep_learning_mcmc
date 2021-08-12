@@ -17,26 +17,30 @@ def get_idces_uniform_linear(neighborhood_size):
         return idces_w, idces_b
     return get_idx
 
-def get_idces_line_linear(layer):
-    """
-    will select one row of a linear layer
-    """
-    n_output, n_input = layer.weight.data.shape
-    idx_row = torch.randint(0, n_output, (1,))
-    idces_w = torch.cat((torch.ones(n_input,1)*idx_row, torch.arange(0,n_input).reshape(n_input, 1) ),dim=1).long()
-    idces_b = idx_row
-    return idces_w, idces_b
+def get_idces_line_linear():
+    def get_idx(layer):
+        """
+        will select one row of a linear layer
+        """
+        n_output, n_input = layer.weight.data.shape
+        idx_row = torch.randint(0, n_output, (1,))
+        idces_w = torch.cat((torch.ones(n_input,1)*idx_row, torch.arange(0,n_input).reshape(n_input, 1) ),dim=1).long()
+        idces_b = idx_row
+        return idces_w, idces_b
+    return get_idx
 
+def get_idces_filter_conv():
+    def get_idx(layer):
+        """
+        will select one row of a linear layer
+        """
+        n_filter, channels, k1, k2 = layer.weight.data.shape
+        idx_filter = torch.randint(0, n_filter, (1,))
+        n_params = channels * k1 * k2
+        idces_w = layer.get_idx_flattened_1_filter(idx_filter)
+        return idces_w, idx_filter
+    return get_idx
 
-def get_idces_filter_conv(layer):
-    """
-    will select one row of a linear layer
-    """
-    n_filter, channels, k1, k2 = layer.weight.data.shape
-    idx_filter = torch.randint(0, n_filter, (1,))
-    n_params = channels * k1 * k2
-    idces_w = layer.get_all_idx_flattened()
-    return idces_w, idx_filter
 
 def get_idces_uniform_conv(neighborhood_size):
     """
@@ -91,7 +95,7 @@ class Selector(ABC):
 
 class UniformSelector(Selector):
     """
-    select one layer and pick some weights with a uniform law over this layer.
+    select one layer and select a proposal according its config over this layer.
     """
     def __init__(self, config):
         number_of_layers = len(config['layer_conf'])
@@ -138,8 +142,7 @@ class UniformSelector(Selector):
 
 class MixedSelector(UniformSelector):
     """
-    select one layer and pick some weights with a uniform law over this layer.
-    The neighborhood_info attribute return also the kind of sampler for binary or real weights, which should be used for the current neighborhood
+    Here, the neighborhood_info attribute return also the kind of sampler for binary or real weights, which should be used for the current neighborhood
     This Selector should be used with the MixedSampler.
     """
     def set_neighborhood_info(self, idces, layer):

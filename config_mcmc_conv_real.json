@@ -1,28 +1,30 @@
 {
         "batch_size": 50000,
         "epochs": 100,
-        "exp_name": "mcmc_real_linear",
+        "exp_name": "mcmc_1h_binary",
         "architecture": {
-                "boolean_flags": [0],
-                "activations" : ["Softmax"]
+                "boolean_flags": [0, 0],
+                "activations" : ["ReLU", "ReLU"],
+                "nb_filters" : 64
         },
         "optimizer": {
                 "name": "mcmc",
                 "selector" : {
                     "name": "MixedSelector",
                     "layer_conf" : [
-                       {"layer_distr" :1, "get_idx":"get_idces_line_linear"}]
+                       {"layer_distr" :0.5, "get_idx":"get_idces_filter_conv"},
+                       {"layer_distr" :0.5, "get_idx":"get_idces_line_linear"}]
                 },
                 "sampler" : {
                     "name" : "MixedSampler",
-                    "variance":0.00000000001
+                    "variance":0.00000001
                     },
                 "prior" : {
                     "name" : "MixedSampler",
-                    "variance":0.00000000001
+                    "variance":0.0000000001
                 },
                 "iter_mcmc" : 1000,
-                "lamb" : 10000000
+                "lamb" : 1000000
         }
 }
 
