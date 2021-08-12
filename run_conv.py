@@ -51,6 +51,9 @@ test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=16)
 # setting the model
 input_size = training_data.data.shape[1] * training_data.data.shape[2] * training_data.data.shape[3]
 print(training_data.data.shape)
+
+
+
 channels = training_data.data.shape[3]
 output_size = len(training_data.classes)
 if "hidden_size" not in params["architecture"]:
@@ -62,6 +65,11 @@ if "boolean_flags" in params["architecture"]:
     boolean_flags = [bool(b) for b in params['architecture']['boolean_flags']]
 else:
     boolean_flags = [False for _ in layer_sizes[1:]]
+if "activations" not in params["architecture"]:
+    activations=None
+else:
+    activations = params["architecture"]["activations"]
+
 
 
 use_gradient = params['optimizer']["name"] == 'grad'
@@ -89,7 +97,7 @@ loss_fn = nets.my_mse_loss
 num_simu = 10
 results = []
 
-model = nets.ConvNet(params['architecture']['nb_filters'], channels)
+model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags, activations=activations)
 model = model.to(device)
 exp_name = params['exp_name']
 if use_gradient:
