@@ -21,6 +21,10 @@ parser.add_argument('--config_file',
 parser.add_argument('--measure_power',
                     help='if set, will record the power draw. This requires the deep_learning_measure package.',
                     action='store_true')
+parser.add_argument('--verbose',
+                    help='if set, will print the loss for each mcmc iteration.',
+                    action='store_true')
+
 
 
 args = parser.parse_args()
@@ -35,13 +39,11 @@ test_data = datasets.CIFAR10(root=args.data_folder,
     transform=ToTensor())
 
 params = vars(args)
-# overriding the parameters with the json file config if it exists
-if params['config_file'] is not None:
-    json_params = json.load(open(params['config_file']))
-    for k,v in json_params.items():
-        params[k] = v
+json_params = json.load(open(params['config_file']))
+for k,v in json_params.items():
+    params[k] = v
 
-print(params)
+# getting the batch size
 batch_size = params['batch_size']
 
 # getting the data
@@ -51,21 +53,27 @@ test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=16)
 # setting the model
 input_size = training_data.data.shape[1] * training_data.data.shape[2] * training_data.data.shape[3]
 output_size = len(training_data.classes)
-if "hidden_size" not in params:
+if "hidden_size" not in params["architecture"]:
     layer_sizes = [input_size, output_size]
 else:
-    layer_sizes = [input_size, params['hidden_size'], output_size]
+    layer_sizes = [input_size, params["architecture"]['hidden_size'], output_size]
+
+if "boolean_flags" in params["architecture"]:
+    boolean_flags = [bool(b) for b in params['architecture']['boolean_flags']]
+else:
+    boolean_flags = [False for _ in layer_sizes[1:]]
+
 
 use_gradient = params['optimizer']["name"] == 'grad'
 # setting the optimizer
 if params["optimizer"]["name"] == "grad":
     optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
 else:
-    selector =  selector.build_selector(params["optimizer"]["selector"], layer_sizes)
+    selector =  selector.build_selector(layer_sizes, params["optimizer"]["selector"])
     sampler = stats.build_distr(params["optimizer"]["sampler"])
     prior = stats.build_distr(params["optimizer"]["prior"])
     optimizer = optimizers.MCMCOptimizer(sampler, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=prior, selector=selector)
-input_image_size = (batch_size, training_data.data.shape[1], training_data.data.shape[2], training_data.data.shape[3]) 
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
@@ -73,15 +81,20 @@ loss_fn = nets.my_mse_loss
 num_simu = 10
 results = []
 
-model = nets.BinaryNetwork(layer_sizes, activations='Softmax')
+model = nets.MLP(layer_sizes, boolean_flags, activations=params['architecture']['activations'])
 model = model.to(device)
 exp_name = params['exp_name']
 if use_gradient:
     exp_name = '_'.join((exp_name, str(params["optimizer"]['lr'])))
 else:
     exp_name = '_'.join(( exp_name, str(params["optimizer"]['lamb'])))
-if args.measure_power:
+if params['measure_power']:
     outdir_power = exp_name+'_power'
+    if not os.path.isdir(outdir_power):
+        os.mkdir(outdir_power)
+    input_image_size = (batch_size, training_data.data.shape[1], training_data.data.shape[2], training_data.data.shape[3]) 
+    summary = model_complexity.get_summary(model, input_image_size)
+    json.dump(summary, open(os.path.join(outdir_power,'model_summary.json'), 'w'))
     p, q = measure_utils.measure_yourself(outdir=outdir_power, period=2)
 training_time = 0
 eval_time = 0
@@ -92,7 +105,7 @@ for t in range(epochs):
     if use_gradient:
         optimizer.train_1_epoch(train_dataloader, model, loss_fn)
     else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer)
+        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=params['verbose'])
     result = {"epoch":t}
     end_epoch = time.time() 
     training_time += time.time() - start_epoch
@@ -103,9 +116,9 @@ for t in range(epochs):
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     else:
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
-        print("Acceptance ratio",acceptance_ratio[0],"exploration",acceptance_ratio[1])
+        print("Acceptance ratio",acceptance_ratio)
     if not use_gradient:
-        result['accept_ratio'] = acceptance_ratio
+        result['accept_ratio'] = acceptance_ratio.to_dict()
     result['train_loss'] = loss
     result['train_accuracy'] = accuracy
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
@@ -118,8 +131,6 @@ for t in range(epochs):
     eval_time += time.time() - end_epoch
     result['end_eval'] = datetime.datetime.now().__str__()
     results.append(result)
-if args.power_measure:
+if params['power_measure']:
     q.put(measure_utils.STOP_MESSAGE)
-    print("wrapping stopped, computing final statistics")
-    summary = model_complexity.get_summary(model, input_image_size)
-    json.dump(summary, open(os.path.join(outdir_power,'model_summary.json'), 'w'))
+    print("wrapping stopped")

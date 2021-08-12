@@ -31,15 +31,16 @@ model = nets.MLP(layer_sizes, binary_flags = [True, False], activations = ['Sigm
 
 #config = {'name':'MixedSelector', 'neighborhood_size': {'binary': 1, 'real':10}, 'layer_distr':[0.9, 0.1]}
 config = {'name':'MixedSelector', 'neighborhood_size': 1, 'layer_distr':[0.9, 0.1]}
-selector = selector.build_selector(layer_sizes, config)
-print('generating layer index',selector.get_layer_idx())
-print('generating neighborhood', selector.get_neighborhood())
+config = {'name':'UniformSelector', 'layer_conf': [{'layer_distr' : 0.9 , 'get_idx' : selector.get_idces_uniform_linear(1)}, {'layer_distr' : 0.1 , 'get_idx' : selector.get_idces_uniform_linear(40)}]}
+s= selector.build_selector(layer_sizes, config)
+print('generating layer index',s.get_layer_idx())
+print('generating neighborhood', s.get_neighborhood(model))
 
 
 student_variance_prop = 0.00000000001
 st_prop = stats.build_distr({'name':'MixedSampler','variance': student_variance_prop })
 # setting the optimizer
-optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=2000, lamb=10000000, prior=st_prop, selector=selector)
+optimizer = optimizers.MCMCOptimizer(st_prop, iter_mcmc=2000, lamb=10000000, prior=st_prop, selector=s)
 
 loss_fn = nets.my_mse_loss
 #loss_fn = nets.nn.CrossEntropyLoss()
@@ -54,7 +55,7 @@ start_all = time.time()
 for t in range(epochs):
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
-    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=True)
+    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=True)
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f}")# \n Acceptance ratio: {acceptance_ratio:>2f}")
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)

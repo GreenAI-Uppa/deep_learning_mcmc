@@ -54,7 +54,7 @@ start_all = time.time()
 for t in range(epochs):
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
-    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=False)
+    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=False)
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f}")# \n Acceptance ratio: {acceptance_ratio:>2f}")
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
