@@ -21,6 +21,10 @@ parser.add_argument('--config_file',
 parser.add_argument('--measure_power',
                     help='if set, will record the power draw. This requires the deep_learning_measure package.',
                     action='store_true')
+parser.add_argument('--verbose',
+                    help='if set, will print the loss for each mcmc iteration.',
+                    action='store_true')
+
 
 
 args = parser.parse_args()
@@ -84,8 +88,12 @@ if use_gradient:
     exp_name = '_'.join((exp_name, str(params["optimizer"]['lr'])))
 else:
     exp_name = '_'.join(( exp_name, str(params["optimizer"]['lamb'])))
-if args.measure_power:
+if params['measure_power']:
     outdir_power = exp_name+'_power'
+    if not os.path.isdir(outdir_power):
+        os.mkdir(outdir_power)
+    summary = model_complexity.get_summary(model, input_image_size)
+    json.dump(summary, open(os.path.join(outdir_power,'model_summary.json'), 'w'))
     p, q = measure_utils.measure_yourself(outdir=outdir_power, period=2)
 training_time = 0
 eval_time = 0
@@ -96,7 +104,7 @@ for t in range(epochs):
     if use_gradient:
         optimizer.train_1_epoch(train_dataloader, model, loss_fn)
     else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=True)
+        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, optimizer, verbose=params['verbose'])
     result = {"epoch":t}
     end_epoch = time.time() 
     training_time += time.time() - start_epoch
@@ -109,7 +117,7 @@ for t in range(epochs):
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
         print("Acceptance ratio",acceptance_ratio)
     if not use_gradient:
-        result['accept_ratio'] = acceptance_ratio
+        result['accept_ratio'] = acceptance_ratio.to_dict()
     result['train_loss'] = loss
     result['train_accuracy'] = accuracy
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
@@ -122,8 +130,6 @@ for t in range(epochs):
     eval_time += time.time() - end_epoch
     result['end_eval'] = datetime.datetime.now().__str__()
     results.append(result)
-if args.power_measure:
+if params['power_measure']:
     q.put(measure_utils.STOP_MESSAGE)
-    print("wrapping stopped, computing final statistics")
-    summary = model_complexity.get_summary(model, input_image_size)
-    json.dump(summary, open(os.path.join(outdir_power,'model_summary.json'), 'w'))
+    print("wrapping stopped")
