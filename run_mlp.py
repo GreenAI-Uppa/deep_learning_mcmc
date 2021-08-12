@@ -22,7 +22,7 @@ parser.add_argument('--measure_power',
                     help='if set, will record the power draw. This requires the deep_learning_measure package.',
                     action='store_true')
 parser.add_argument('--verbose',
-                    help='if set, will print the loss at each mcmc iteration.',
+                    help='if set, will print the loss for each mcmc iteration.',
                     action='store_true')
 
 
@@ -81,7 +81,7 @@ else:
     sampler = stats.build_distr(params["optimizer"]["sampler"])
     prior = stats.build_distr(params["optimizer"]["prior"])
     optimizer = optimizers.MCMCOptimizer(sampler, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=prior, selector=selector)
-input_image_size = (batch_size, training_data.data.shape[1], training_data.data.shape[2], training_data.data.shape[3])
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
@@ -100,6 +100,7 @@ if params['measure_power']:
     outdir_power = exp_name+'_power'
     if not os.path.isdir(outdir_power):
         os.mkdir(outdir_power)
+    input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
     summary = model_complexity.get_summary(model, input_image_size)
     json.dump(summary, open(os.path.join(outdir_power,'model_summary.json'), 'w'))
     p, q = measure_utils.measure_yourself(outdir=outdir_power, period=2)
@@ -125,7 +126,7 @@ for t in range(epochs):
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
         print("Acceptance ratio",acceptance_ratio)
     if not use_gradient:
-        result['accept_ratio'] = acceptance_ratio
+        result['accept_ratio'] = acceptance_ratio.to_dict()
     result['train_loss'] = loss
     result['train_accuracy'] = accuracy
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
@@ -140,4 +141,4 @@ for t in range(epochs):
     results.append(result)
 if params['power_measure']:
     q.put(measure_utils.STOP_MESSAGE)
-    print("wrapping stopped, computing final statistics")
+    print("wrapping stopped")
