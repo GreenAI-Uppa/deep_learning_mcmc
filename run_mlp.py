@@ -97,13 +97,11 @@ if use_gradient:
 else:
     exp_name = '_'.join(( exp_name, str(params["optimizer"]['lamb'])))
 if params['measure_power']:
-    outdir_power = exp_name+'_power'
-    if not os.path.isdir(outdir_power):
-        os.mkdir(outdir_power)
+    from deep_learning_power_measure.power_measure import experiment, parsers
     input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
-    summary = model_complexity.get_summary(model, input_image_size)
-    json.dump(summary, open(os.path.join(outdir_power,'model_summary.json'), 'w'))
-    p, q = measure_utils.measure_yourself(outdir=outdir_power, period=2)
+    driver = parsers.JsonParser(os.path.join(os.getcwd(),'power_measure'))
+    exp = experiment.Experiment(driver, model=model, input_size=input_image_size)
+    p, q = exp.measure_yourself(period=2
 training_time = 0
 eval_time = 0
 start_all = time.time()
@@ -139,6 +137,6 @@ for t in range(epochs):
     eval_time += time.time() - end_epoch
     result['end_eval'] = datetime.datetime.now().__str__()
     results.append(result)
-if params['power_measure']:
+if params['measure_power']:
     q.put(measure_utils.STOP_MESSAGE)
     print("wrapping stopped")
