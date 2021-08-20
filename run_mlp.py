@@ -8,7 +8,6 @@ import numpy as np, math
 #import sys
 #sys.path.insert()
 from deep_learning_mcmc import nets, optimizers, stats, selector 
-from power_consumption_measure import measure_utils, model_complexity
 import argparse
 
 parser = argparse.ArgumentParser(description='Train a model on cifar10 with either mcmc or stochastic gradient based approach')
@@ -83,16 +82,13 @@ else:
     optimizer = optimizers.MCMCOptimizer(sampler, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=prior, selector=selector)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-device = 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
-#loss_fn = nets.my_mse_loss
 loss_fn = torch.nn.CrossEntropyLoss()
 num_simu = 10
 results = []
 
 model = nets.MLP(layer_sizes, boolean_flags, activations=params['architecture']['activations'])
-model = model.to(device)
 exp_name = params['exp_name']
 if use_gradient:
     exp_name = '_'.join((exp_name, str(params["optimizer"]['lr'])))
@@ -100,10 +96,11 @@ else:
     exp_name = '_'.join(( exp_name, str(params["optimizer"]['lamb'])))
 if params['measure_power']:
     from deep_learning_power_measure.power_measure import experiment, parsers
-    input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
+    input_image_size = (1, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
     driver = parsers.JsonParser(os.path.join(os.getcwd(),'power_measure'))
     exp = experiment.Experiment(driver, model=model, input_size=input_image_size)
     p, q = exp.measure_yourself(period=2)
+model = model.to(device)
 training_time = 0
 eval_time = 0
 start_all = time.time()

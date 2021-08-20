@@ -98,7 +98,6 @@ num_simu = 10
 results = []
 
 model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags, activations=activations)
-model = model.to(device)
 exp_name = params['exp_name']
 if use_gradient:
     exp_name = '_'.join((exp_name, str(params["optimizer"]['lr'])))
@@ -110,6 +109,7 @@ if params['measure_power']:
     driver = parsers.JsonParser(os.path.join(os.getcwd(),'power_measure'))
     exp = experiment.Experiment(driver, model=model, input_size=input_image_size)
     p, q = exp.measure_yourself(period=2)
+model = model.to(device)
 training_time = 0
 eval_time = 0
 start_all = time.time()
