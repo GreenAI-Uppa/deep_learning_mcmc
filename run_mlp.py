@@ -83,9 +83,11 @@ else:
     optimizer = optimizers.MCMCOptimizer(sampler, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=prior, selector=selector)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
-loss_fn = nets.my_mse_loss
+#loss_fn = nets.my_mse_loss
+loss_fn = torch.nn.CrossEntropyLoss()
 num_simu = 10
 results = []
 
@@ -101,7 +103,7 @@ if params['measure_power']:
     input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
     driver = parsers.JsonParser(os.path.join(os.getcwd(),'power_measure'))
     exp = experiment.Experiment(driver, model=model, input_size=input_image_size)
-    p, q = exp.measure_yourself(period=2
+    p, q = exp.measure_yourself(period=2)
 training_time = 0
 eval_time = 0
 start_all = time.time()

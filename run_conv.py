@@ -92,7 +92,8 @@ else:
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
-loss_fn = nets.my_mse_loss
+#loss_fn = nets.my_mse_loss
+loss_fn = torch.nn.CrossEntropyLoss()
 num_simu = 10
 results = []
 
