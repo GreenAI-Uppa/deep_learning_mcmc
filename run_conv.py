@@ -107,8 +107,8 @@ if params['measure_power']:
     from deep_learning_power_measure.power_measure import experiment, parsers
     input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
     driver = parsers.JsonParser(os.path.join(os.getcwd(),'power_measure'))
-    exp = experiment.Experiment(driver, model=model, input_size=input_image_size)
-    p, q = exp.measure_yourself(period=2)
+    exp = experiment.Experiment(driver)
+    p, q = exp.measure_yourself(period=2, model=model, input_size=input_image_size)
 training_time = 0
 eval_time = 0
 start_all = time.time()
