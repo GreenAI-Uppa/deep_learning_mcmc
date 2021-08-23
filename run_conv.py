@@ -85,17 +85,13 @@ else:
             get_idx = getattr(selector, layer_conf['get_idx'])()
         config['layer_conf'].append({'layer_distr': layer_distr, 'get_idx': get_idx})
     selector =  selector.build_selector(config)
-    samplers = stats.build_distr_(params["optimizer"]["samplers"])
-    #import pdb; pdb.set_trace()
-    #prior = stats.build_distr(params["optimizer"]["prior"])
+    samplers = stats.build_samplers(params["optimizer"]["samplers"])
     optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=samplers, selector=selector)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
-#loss_fn = nets.my_mse_loss
 loss_fn = torch.nn.CrossEntropyLoss()
-num_simu = 10
 results = []
 
 model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags, activations=activations)

@@ -45,7 +45,7 @@ class SamplerList(object):
         neighborhood_info : information about the current network layer
         """
         layer_idx, _ = neighborhood_info
-        return self.samplers[layer_idx]['prior'].get_ratio(epsilon, params, neighborhood_info)
+        return self.samplers[layer_idx]['prior'].get_ratio(epsilon, params)
 
 class Student(object):
     """

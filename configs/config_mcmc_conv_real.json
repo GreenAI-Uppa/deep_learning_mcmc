@@ -10,7 +10,7 @@
         "optimizer": {
                 "name": "mcmc",
                 "selector" : {
-                    "name": "UniformSelector",
+                    "name": "Selector",
                     "layer_conf" : [
                        {"layer_distr" :0.9, "get_idx":"get_idces_uniform_conv", "get_idx_param":1},
                        {"layer_distr" :0.1, "get_idx":"get_idces_uniform_linear", "get_idx_param":40}]
@@ -19,7 +19,7 @@
                     {"sampler": {"name" : "BinarySampler"}, "prior" : {"name" : "BinarySampler"}},
                     {"sampler": {"name" : "Student","variance":0.00000000001 }, "prior" : {"name" : "Student", "variance": 0.00000000001}}
                     ],
-                "iter_mcmc" : 1000,
+                "iter_mcmc" : 50000,
                 "lamb" : 10000000
         }
 }

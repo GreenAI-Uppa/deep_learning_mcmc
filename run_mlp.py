@@ -85,7 +85,7 @@ else:
             get_idx = getattr(selector, layer_conf['get_idx'])()
         config['layer_conf'].append({'layer_distr': layer_distr, 'get_idx': get_idx})
     selector =  selector.build_selector(config)
-    samplers = stats.build_distr(params["optimizer"]["samplers"])
+    samplers = stats.build_samplers(params["optimizer"]["samplers"])
     #import pdb; pdb.set_trace()
     #prior = stats.build_distr(params["optimizer"]["prior"])
     optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=samplers, selector=selector)

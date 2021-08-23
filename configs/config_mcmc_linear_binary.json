@@ -17,7 +17,7 @@
                 "samplers" : [
                     {"sampler": {"name" : "BinarySampler"}, "prior" : {"name" : "BinarySampler"}}
                     ],
-                "iter_mcmc" : 1000,
+                "iter_mcmc" : 5000,
                 "lamb" : 10000000
         }
 }
