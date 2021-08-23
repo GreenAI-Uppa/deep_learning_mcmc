@@ -86,9 +86,7 @@ else:
         config['layer_conf'].append({'layer_distr': layer_distr, 'get_idx': get_idx})
     selector =  selector.build_selector(config)
     samplers = stats.build_samplers(params["optimizer"]["samplers"])
-    #import pdb; pdb.set_trace()
-    #prior = stats.build_distr(params["optimizer"]["prior"])
-    optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], lamb=params["optimizer"]["lamb"], prior=samplers, selector=selector)
+    optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
@@ -100,10 +98,6 @@ results = []
 
 model = nets.MLP(layer_sizes, binary_flags=boolean_flags, activations=activations)
 exp_name = params['exp_name']
-if use_gradient:
-    exp_name = '_'.join((exp_name, str(params["optimizer"]['lr'])))
-else:
-    exp_name = '_'.join(( exp_name, str(params["optimizer"]['lamb'])))
 if params['measure_power']:
     from deep_learning_power_measure.power_measure import experiment, parsers
     input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
