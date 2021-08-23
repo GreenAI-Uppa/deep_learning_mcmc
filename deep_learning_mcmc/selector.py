@@ -7,7 +7,7 @@ from typing import Tuple
 
 def get_idces_uniform_linear(neighborhood_size):
     """
-    will select neighborhood_size weights from a linear layer according to a uniform law
+    select neighborhood_size weights from a linear layer according to a uniform law
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
@@ -19,7 +19,7 @@ def get_idces_uniform_linear(neighborhood_size):
 
 def get_idces_line_linear():
     """
-    will select one row of a linear layer
+    select one row of a linear layer
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
@@ -31,7 +31,7 @@ def get_idces_line_linear():
 
 def get_idces_filter_conv():
     """
-    will select one row of a linear layer
+    select one filter and gives the whole filter as a selected neighborhood
     """
     def get_idx(layer):
         n_filter, channels, k1, k2 = layer.weight.data.shape
@@ -44,7 +44,7 @@ def get_idces_filter_conv():
 
 def get_idces_uniform_conv(neighborhood_size):
     """
-    will select neighborhood_size weights from a linear layer according to a uniform law
+    select neighborhood_size weights from a linear layer according to a uniform law
     """
     def get_idx(layer):
         """
