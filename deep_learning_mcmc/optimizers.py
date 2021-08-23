@@ -1,8 +1,11 @@
+"""optimizers contains gradient and mcmc optimizers and the main loop content
+to train the network"""
+import collections
 from abc import ABC, abstractmethod
 import torch
-import collections
 
 class Optimizer(ABC):
+    """Generic optimizer interface"""
     def __init__(self, data_points_max = 1000000000):
         """
         number of data points to used in the dataset
@@ -10,10 +13,11 @@ class Optimizer(ABC):
         self.data_points_max = data_points_max
 
     def train_1_epoch(self, dataloader, model, loss_fn):
+        """train the data for 1 epoch"""
         num_items_read = 0
         # attempting to guess the device on the model.
         device = next(model.parameters()).device
-        for batch, (X, y) in enumerate(dataloader):
+        for _, (X, y) in enumerate(dataloader):
             if self.data_points_max <= num_items_read:
                 break
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
@@ -24,19 +28,18 @@ class Optimizer(ABC):
             self.train_1_batch(X, y, model, loss_fn)
 
     @abstractmethod
-    def train_1_batch(self, X, y, model):
-        pass
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
+        """abtract method to train a batch of data"""
 
 class GradientOptimizer(Optimizer):
+    """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
     def __init__(self, data_points_max = 1000000000, lr=0.001):
-        super(GradientOptimizer, self).__init__(data_points_max = 1000000000)
+        super().__init__(data_points_max = 1000000000)
         self.lr = lr
 
-    def train_1_batch(self, X, y, model, loss_fn):
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
         SGD optimization
-        inputs:
-        lr : learning rate
         """
         pred = model(X)
         los = loss_fn(pred, y)
@@ -53,7 +56,7 @@ class MCMCOptimizer(Optimizer):
         lamb : ponderation between the data and the prior
         iter_mcmc : number of mcmc iterations
         """
-        super(MCMCOptimizer, self).__init__(data_points_max = 1000000000)
+        super().__init__(data_points_max = 1000000000)
         self.iter_mcmc = iter_mcmc
         self.lamb = lamb
         self.sampler = sampler
@@ -65,11 +68,12 @@ class MCMCOptimizer(Optimizer):
 
     def train_1_epoch(self, dataloader, model, loss_fn, verbose=False):
         """
+        train for 1 epoch and collect the acceptance ratio
         """
         num_items_read = 0
         acceptance_ratio = Acceptance_ratio()
         device = next(model.parameters()).device
-        for batch, (X, y) in enumerate(dataloader):
+        for _, (X, y) in enumerate(dataloader):
             if self.data_points_max <= num_items_read:
                 break
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
@@ -77,7 +81,7 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptance_ratio += self.train_1_batch(X, y, model, loss_fn, verbose=verbose)
+            acceptance_ratio += self.train_1_batch(X, y, model, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose)
         return acceptance_ratio
 
     def train_1_batch(self, X, y, model, loss_fn, verbose=False):
@@ -117,7 +121,8 @@ class MCMCOptimizer(Optimizer):
             loss_prop = loss_fn(pred, y)
 
             # computing the change in the loss
-            data_term = torch.exp(self.lamb * (loss -loss_prop))
+            lamb = self.sampler.get_lambda(self.selector.neighborhood_info)
+            data_term = torch.exp(lamb * (loss -loss_prop))
 
             rho  = min(1, data_term * student_ratio)
             if verbose:
@@ -127,16 +132,12 @@ class MCMCOptimizer(Optimizer):
             key = self.selector.get_proposal_as_string(neighborhood)
             ar.incr_prop_count(key) # recording so that we can later compute the acceptance ratio
             if rho > torch.rand(1).to(device):
-              # accepting, keeping the new value of the loss
-              ar.incr_acc_count(key)
-              """
-              if loss < loss_prop:
-                  ar.increment(key+"_exploration")
-              """
-              loss = loss_prop
+                # accepting, keeping the new value of the loss
+                ar.incr_acc_count(key)
+                loss = loss_prop
             else:
-              # not accepting, so undoing the change
-              self.selector.undo(model, neighborhood, epsilon)
+                # not accepting, so undoing the change
+                self.selector.undo(model, neighborhood, epsilon)
         return ar
 
 

@@ -16,11 +16,10 @@
                        {"layer_distr" :0.1, "get_idx":"get_idces_uniform_linear", "get_idx_param":40}]
                 },
                 "samplers" : [
-                    {"sampler": {"name" : "BinarySampler"}, "prior" : {"name" : "BinarySampler"}},
-                    {"sampler": {"name" : "Student","variance":0.00000000001 }, "prior" : {"name" : "Student", "variance": 0.00000000001}}
+                    {"sampler": {"name" : "BinarySampler"}, "prior" : {"name" : "BinarySampler"}, "lamb":10000000},
+                    {"sampler": {"name" : "Student","variance":0.00000000001 }, "prior" : {"name" : "Student", "variance": 0.00000000001}, "lamb":10000000}
                     ],
-                "iter_mcmc" : 50000,
-                "lamb" : 10000000
+                "iter_mcmc" : 50000
         }
 }
 

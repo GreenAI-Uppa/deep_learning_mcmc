@@ -11,11 +11,13 @@ def build_samplers(config):
     both are the same, only the usage change.
     """
     samplers = []
+    lambdas = []
     for sampler_config in config:
         sampler = build_sampler(sampler_config['sampler'])
         prior = build_sampler(sampler_config['prior'])
         samplers.append({'sampler':sampler, 'prior': prior})
-    return SamplerList(samplers)
+        lambdas.append(sampler_config['lamb'])
+    return SamplerList(samplers, lambdas)
 
 def build_sampler(config):
     """build 1 sampler or prior"""
@@ -27,8 +29,14 @@ def build_sampler(config):
         return getattr(current_module, selector_name)()
 
 class SamplerList(object):
-    def __init__(self, samplers):
+    def __init__(self, samplers, lambdas):
         self.samplers = samplers
+        self.lambdas = lambdas
+
+    def get_lambda(self, neighborhood):
+        """return the lambda value given the layer index"""
+        layer_idx, neighborhood_size = neighborhood
+        return self.lambdas[layer_idx]
 
     def sample(self, neighborhood):
         """
