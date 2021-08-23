@@ -1,0 +1,24 @@
+{
+        "batch_size": 50000,
+        "epochs": 100,
+        "exp_name": "mcmc_linear_binary",
+        "architecture": {
+                "boolean_flags": [1],
+                "activations" : ["Softmax"]
+        },
+        "optimizer": {
+                "name": "mcmc",
+                "selector" : {
+                    "name": "Selector",
+                    "layer_conf" : [
+                       {"layer_distr" :1, "get_idx":"get_idces_uniform_linear", "get_idx_param":1}
+                       ]
+                },
+                "samplers" : [
+                    {"sampler": {"name" : "BinarySampler"}, "prior" : {"name" : "BinarySampler"}}
+                    ],
+                "iter_mcmc" : 1000,
+                "lamb" : 10000000
+        }
+}
+
