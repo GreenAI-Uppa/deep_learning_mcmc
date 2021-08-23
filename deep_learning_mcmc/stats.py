@@ -5,41 +5,47 @@ import math
 import sys
 current_module = sys.modules[__name__]
 
+def build_samplers(config):
+    """
+    build a list of sampler and prior
+    both are the same, only the usage change.
+    """
+    samplers = []
+    for sampler_config in config:
+        sampler = build_sampler(sampler_config['sampler'])
+        prior = build_sampler(sampler_config['prior'])
+        samplers.append({'sampler':sampler, 'prior': prior})
+    return SamplerList(samplers)
 
-def build_distr(config):
+def build_sampler(config):
+    """build 1 sampler or prior"""
     selector_name = config["name"]
     if selector_name == "Student":
         variance = config["variance"]
         return getattr(current_module, selector_name)(variance)
     elif selector_name=="BinarySampler":
         return getattr(current_module, selector_name)()
-    else:
-        variance = config["variance"]
-        real_sampler = Student(variance)
-        binary_sampler = BinarySampler()
-        return MixedSampler(real_sampler, binary_sampler)
 
-class MixedSampler(object):
-    def __init__(self, real_sampler, binary_sampler):
-        self.real_sampler = real_sampler
-        self.binary_sampler = binary_sampler
+class SamplerList(object):
+    def __init__(self, samplers):
+        self.samplers = samplers
 
     def sample(self, neighborhood):
-        is_binary, neighborhood_size = neighborhood
-        if is_binary:
-            return self.binary_sampler.sample(neighborhood_size)
-        else:
-            return self.real_sampler.sample(neighborhood_size)
-
-    def get_lambda(self, neighborhood):
-        pass
+        """
+        return a 1d proposal for the specified layer index and neighborhood
+        """
+        layer_idx, neighborhood_size = neighborhood
+        return self.samplers[layer_idx]['sampler'].sample(neighborhood_size)
 
     def get_ratio(self, epsilon, params, neighborhood_info):
-        is_binary, _ = neighborhood_info
-        if is_binary:
-            return self.binary_sampler.get_ratio(epsilon, params, neighborhood_info)
-        else:
-            return self.real_sampler.get_ratio(epsilon, params, neighborhood_info)
+        """
+        compute the
+        epsilon : delta drawn from the sampler
+        params : parameter weight of the model
+        neighborhood_info : information about the current network layer
+        """
+        layer_idx, _ = neighborhood_info
+        return self.samplers[layer_idx]['prior'].get_ratio(epsilon, params, neighborhood_info)
 
 class Student(object):
     """
@@ -98,28 +104,33 @@ class Student(object):
         d = 1. * Num / Denom
         return d
 
-    def get_ratio(self, epsilon, params, neighborhood_info):
-      """
-      compute the likelihood ratio of two variables
-               student(params[i] + epsilon[i])
-      Prod_i (   ------------------------      )
-                   student(params[i])
-      """
-      #apply the move to get theta tilde
-      params_tilde = params + epsilon
+    def get_ratio(self, epsilon, params):
+        """
+        compute the likelihood ratio of two variables
+           student(params[i] + epsilon[i])
+        Prod_i (   ------------------------      )
+               student(params[i])
+        """
+        #apply the move to get theta tilde
+        params_tilde = params + epsilon
 
-      # get the likelihood of the theta
-      den = self.t_distribution_fast(params)
+        # get the likelihood of the theta
+        den = self.t_distribution_fast(params)
 
-      # get the likelihood of the theta tilde
-      num = self.t_distribution_fast(params_tilde)
+        # get the likelihood of the theta tilde
+        num = self.t_distribution_fast(params_tilde)
 
-      ratio = num / den
-      return functools.reduce(mul, ratio, 1)
+        ratio = num / den
+        return functools.reduce(mul, ratio, 1)
 
 
 class BinarySampler(object):
-    def sample(self, n):
-        return None
-    def get_ratio(self, epsilon, params, neighborhood_info):
+    def sample(self, n, p=0.5):
+        """
+        return vector of realisations of bernouli variables
+        """
+        return np.random.binomial(size=n, n=1, p = p) * 2 - 1
+
+    def get_ratio(self, epsilon, params):
+        """ no prior """
         return 1

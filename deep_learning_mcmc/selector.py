@@ -18,10 +18,10 @@ def get_idces_uniform_linear(neighborhood_size):
     return get_idx
 
 def get_idces_line_linear():
+    """
+    will select one row of a linear layer
+    """
     def get_idx(layer):
-        """
-        will select one row of a linear layer
-        """
         n_output, n_input = layer.weight.data.shape
         idx_row = torch.randint(0, n_output, (1,))
         idces_w = torch.cat((torch.ones(n_input,1)*idx_row, torch.arange(0,n_input).reshape(n_input, 1) ),dim=1).long()
@@ -30,10 +30,10 @@ def get_idces_line_linear():
     return get_idx
 
 def get_idces_filter_conv():
+    """
+    will select one row of a linear layer
+    """
     def get_idx(layer):
-        """
-        will select one row of a linear layer
-        """
         n_filter, channels, k1, k2 = layer.weight.data.shape
         idx_filter = torch.randint(0, n_filter, (1,))
         n_params = channels * k1 * k2
@@ -65,35 +65,7 @@ def build_selector(config):
     selector_class = getattr(current_module, selector_name)
     return selector_class(config)
 
-class Selector(ABC):
-    @abstractmethod
-    def __init__(sizes, config):
-        self.sizes = sizes
-
-    @abstractmethod
-    def get_neighborhood(model):
-        pass
-
-    @abstractmethod
-    def getParamLine(neighborhood, model):
-        pass
-
-    @abstractmethod
-    def update(model, neighborhood, proposal):
-        pass
-
-    @abstractmethod
-    def update(model, neighborhood, proposal):
-        pass
-
-    @abstractmethod
-    def undo(model, neighborhood, proposal):
-        pass
-
-    def get_proposal_as_string(self, neighborhood):
-        return "layer_x"
-
-class UniformSelector(Selector):
+class Selector():
     """
     select one layer and select a proposal according its config over this layer.
     """
@@ -106,10 +78,21 @@ class UniformSelector(Selector):
         self.layer_distr = torch.cumsum(torch.Tensor(self.layer_distr),0)
         self.config = config['layer_conf']
 
-    def set_neighborhood_info(self, idces, layer):
-        self.neighborhood_info = layer.get_selected_size(idces)
+    def set_neighborhood_info(self, neighborhood, layer):
+        """
+        simply return the size of the neighborhood considered
+
+        idces : indices of the neighborhood considered
+        layer : pytorch object layer from the neighborhood has been extracted
+        """
+        layer_idx, idces = neighborhood
+        self.neighborhood_info = layer_idx, layer.get_selected_size(idces)
 
     def get_layer_idx(self):
+        """
+        randomly selects a layer according to the distribution given by
+        self.layer_distr
+        """
         seed = torch.rand(1)
         layer_idx = 0
         for i, x in enumerate(self.layer_distr):
@@ -118,84 +101,61 @@ class UniformSelector(Selector):
             layer_idx += 1
         return layer_idx
 
-    def get_neighborhood(self, model):
+    def get_neighborhood(self, model : torch.nn.Module):
+        """
+        select one layer of the model
+        select a subset of parameters from the selected layer
+
+        return
+        layer_idx : the index of the selected layer
+        idces : the idces of the weights for the selected layer
+        """
         layer_idx = self.get_layer_idx()
         idces = self.config[layer_idx]['get_idx'](model.layers[layer_idx])
         return layer_idx, idces
 
     def getParamLine(self, neighborhood, model):
+        """
+        return the parameter value of the selected neighborhood as a line
+
+        neighborhood : the idces of the neighborhood considered
+        """
         layer_idx, idces = neighborhood
-        self.set_neighborhood_info(idces, model.layers[layer_idx])
+        self.set_neighborhood_info(neighborhood, model.layers[layer_idx])
         return model.layers[layer_idx].getParamLine(idces)
 
     def update(self, model, neighborhood, proposal):
+        """
+        update the model weight given a proposal.
+        Since the proposal
+        comes out as 1D vector, the information contained in the
+         neighborhood parameter allows to select the weights which should
+         be updated
+
+
+        model : the model to be updated
+        neighborhood : the required information to select the weights which
+        should be updated by the proposal
+        proposal : the value for the new weight as a 1D vector
+        """
         layer_idx, idces = neighborhood
         model.layers[layer_idx].update(idces, proposal)
 
     def undo(self, model, neighborhood, proposal):
+        """
+        inverse function of update
+        """
         layer_idx, idces = neighborhood
         model.layers[layer_idx].undo(idces, proposal)
 
     def get_proposal_as_string(self, neighborhood):
+        """
+        return the name of the layer related to the considered neighborhood
+        This string can be used to keep track of the acceptance ratio
+        of the different proposal
+
+        neighborhood : contains the information needed to explain where (ie in
+        which layer) the proposal has been applied.
+        """
         layer_idx, idces = neighborhood
         return 'layer_'+str(layer_idx)
-
-class MixedSelector(UniformSelector):
-    """
-    Here, the neighborhood_info attribute return also the kind of sampler for binary or real weights, which should be used for the current neighborhood
-    This Selector should be used with the MixedSampler.
-    """
-    def set_neighborhood_info(self, idces, layer):
-        self.neighborhood_info = layer.is_binary, layer.get_selected_size(idces)
-
-
-class OneHiddenSelector(Selector):
-    """
-    Selector which was used in the first experiment
-    It has the particularity that the two layers are sampled within the same mcmc iteration
-
-    It still there mostly for archive purposes and will be probably removed soon
-    """
-    def __init__(self, layer_sizes, config):
-        self.sizes = layer_sizes
-
-    def get_neighborhood(self):
-        n_input, n_hidden, n_output = self.sizes
-        idx_hidden = torch.randint(0, n_hidden, (1,))
-        idx_output = -1
-        if torch.randint(0,int(n_hidden/n_output), (1,)) == 0: # the bias of the second layer will be selected
-            idx_output = torch.randint(0,n_output, (1,))
-        idces_w1 = torch.cat((torch.ones(n_input,1)*idx_hidden, torch.arange(0,n_input).reshape(n_input, 1) ),dim=1).long()
-        idces_b1 = idx_hidden
-        idces_w2 = torch.cat((torch.arange(0,n_output).reshape(n_output, 1), torch.ones(n_output,1)*idx_hidden ), dim=1).long()
-        if idx_output == -1:
-            idces_b2 = torch.Tensor([])
-        else:
-            idces_b2 = torch.Tensor([idx_output]).long()
-        self.set_neighborhood_size((idces_w1, idces_b1, idces_w2, idces_b2))
-        return idces_w1, idces_b1, idces_w2, idces_b2
-
-    def getParamLine(self, neighborhood, model):
-        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
-        w1 = model.layers[0].weight.data[idces_w1[:,0],idces_w1[:,1]]
-        b1 = model.layers[0].bias.data[idces_b1]
-        w2 = model.layers[1].weight.data[idces_w2[:,0],idces_w2[:,1]]
-        if idces_b2.shape[0] == 0:
-            return torch.cat((w1, b1, w2))
-        else:
-            b2 = model.layers[0].bias.data[idces_b2]
-            return torch.cat((w1, b1, w2, b2))
-
-    def set_neighborhood_info(self, neighborhood):
-        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
-        self.neighborhood_info = idces_w1.shape[0] + 1 + idces_w2.shape[0] + idces_b2.shape[0]
-
-    def update(self, model, neighborhood, proposal):
-        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
-        model.layers[0].update((idces_w1, idces_b1), proposal[:idces_w1.shape[0]+1])
-        model.layers[1].update((idces_w2, idces_b2), proposal[idces_w1.shape[0]+1:])
-
-    def undo(self, model, neighborhood, proposal):
-        idces_w1, idces_b1, idces_w2, idces_b2 = neighborhood
-        model.layers[0].undo((idces_w1, idces_b1), proposal[:idces_w1.shape[0]+1])
-        model.layers[1].undo((idces_w2, idces_b2), proposal[idces_w1.shape[0]+1:])
