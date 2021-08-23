@@ -17,25 +17,11 @@ python setup.py install
 Train the model on cifar-10 with mcmc (run --help for additional arguments)
 
 ```
-python run_exp.py --exp_name mcmc_full_batch --data_folder /location/of/cyfar
+python run_conv.py --config_file configs/config_mcmc_conv_real.json --data_folder /home/paul/data/pytorch_cifar10/ --verbose
 ```
 This command will generate a json file containing the loss and the accuracy for the different epochs. 
-To visualise the curves, use: 
 
-```
-python plot_curve.py exp_name_1000000_999.json
-```
+## configuration
 
-You can also use the json config file, this will override the arguments given from the command line
-
-```
-python run_exp.py --data_folder /location/of/cyfar --config_file config_mcmc_1_layer.json
-```
-
-
-Train the model with **gradient descent** for comparison purposes
-
-```
-python run_exp.py --batch_size 64 --use_gradient --data_folder /location/of/cyfar
-```
+The json configuration file is organised around lists where the ith element is the configuration of the ith layer 
 
