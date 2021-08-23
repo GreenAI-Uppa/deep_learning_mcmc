@@ -1,0 +1,9 @@
+{
+	"batch_size": 64, 
+	"epochs": 200, 
+	"exp_name": "results", 
+	"optimizer": { 
+		"name": "grad",
+		"lr": 0.01
+       	}
+}
