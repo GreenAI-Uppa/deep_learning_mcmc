@@ -74,7 +74,10 @@ else:
 use_gradient = params['optimizer']["name"] == 'grad'
 # setting the optimizer
 if params["optimizer"]["name"] == "grad":
-    optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
+    if 'pruning_proba' in params["optimizer"]:
+        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'],pruning_proba=params["optimizer"]['pruning_proba'])
+    else:
+        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
 else:
     config = {'name': params['optimizer']['selector']['name'], 'layer_conf':[]}
     for layer_conf in params['optimizer']['selector']['layer_conf']:
@@ -86,7 +89,10 @@ else:
         config['layer_conf'].append({'layer_distr': layer_distr, 'get_idx': get_idx})
     selector =  selector.build_selector(config)
     samplers = stats.build_samplers(params["optimizer"]["samplers"])
-    optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector)
+    if 'pruning_proba' in params["optimizer"]:
+        optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector,pruning_proba=params["optimizer"]['pruning_proba'])
+    else:
+        optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))

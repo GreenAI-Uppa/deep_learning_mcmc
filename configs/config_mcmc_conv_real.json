@@ -10,6 +10,7 @@
         "variance_init": 0.00000001,
         "optimizer": {
                 "name": "mcmc",
+                "pruning_proba":0.9,
                 "selector" : {
                     "name": "Selector",
                     "layer_conf" : [

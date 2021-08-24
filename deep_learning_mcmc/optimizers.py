@@ -33,23 +33,29 @@ class Optimizer(ABC):
 
 class GradientOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
-    def __init__(self, data_points_max = 1000000000, lr=0.001):
+    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
-
+        self.pruning_proba = pruning_proba
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
         SGD optimization
         """
+        device = next(model.parameters()).device
         pred = model(X)
         los = loss_fn(pred, y)
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
         for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
             layer.weight.data -=  gg[2*i] * self.lr
+            if self.pruning_proba>0:
+                q1 = torch.quantile(torch.flatten(torch.abs(model.conv1.weight.data)),self.pruning_proba, dim=0)
+                bin_mat = torch.abs(layer.weight.data) > q1
+                bin_mat = bin_mat.to(device)
+                layer.weight.data = (bin_mat)*layer.weight.data
             layer.bias.data -=  gg[2*i+1] * self.lr
 
 class MCMCOptimizer(Optimizer):
-    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None):
+    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None, pruning_proba=0):
         """
         variance_prop : zero centered univariate student law class to generate the proposals
         variance_prior : zero centered univariate student law class used as a prior on the parameter values
@@ -60,6 +66,7 @@ class MCMCOptimizer(Optimizer):
         self.iter_mcmc = iter_mcmc
         self.lamb = lamb
         self.sampler = sampler
+        self.pruning_proba = pruning_proba
         if prior is None:
             self.prior = self.sampler
         else:
@@ -113,6 +120,11 @@ class MCMCOptimizer(Optimizer):
             epsilon = self.sampler.sample(self.selector.neighborhood_info)
             if epsilon is not None:
                 epsilon = torch.tensor(epsilon.astype('float32')).to(device)
+                if self.pruning_proba>0:
+                    q1 = torch.quantile(torch.flatten(torch.abs(epsilon)),self.pruning_proba, dim=0)
+                    bin_mat = torch.abs(epsilon) > q1
+                    bin_mat = bin_mat.to(device)
+                    epsilon = (bin_mat)*epsilon
             # getting the ratio of the students
             student_ratio = self.prior.get_ratio(epsilon, params_line, self.selector.neighborhood_info)
 
