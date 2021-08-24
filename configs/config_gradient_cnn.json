@@ -1,6 +1,6 @@
 {
   "batch_size": 64,
-  "epochs": 100,
+  "epochs": 10,
   "exp_name": "results_cnn_gradient_proba",
   "optimizer": {
 	  "name":"grad",
@@ -8,7 +8,8 @@
   },
   "dataset": "CIFAR10",
   "architecture":{
-	  "nb_filters":64
-  }
+	  "nb_filters": 64
+  },
+  "measure_power" : 1
 }
 
