@@ -154,3 +154,6 @@ for t in range(epochs):
 if params['measure_power']:
     q.put(experiment.STOP_MESSAGE)
     print("power measuring stopped")
+    driver = parsers.JsonParser("power_measure")
+    exp_result = experiment.ExpResults(driver)
+    exp_result.print()
