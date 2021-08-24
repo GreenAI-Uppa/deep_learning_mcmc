@@ -100,7 +100,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
-results = []
+results = {}
 
 if "variance_init" in params:
     st_init = stats.Student(params['variance_init'])
@@ -153,12 +153,12 @@ for t in range(epochs):
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     result['test_loss'] = loss
     result['test_accuracy'] = accuracy
-    json.dump(results, open(exp_name+'.json','w'))
     torch.save(model, exp_name+'.th')
     result['eval_time'] = time.time() - end_epoch
     eval_time += time.time() - end_epoch
     result['end_eval'] = datetime.datetime.now().__str__()
-    results.append(result)
+    results[t]=result
+    json.dump(results, open(exp_name+'.json','w'))
 if params['measure_power']:
     q.put(experiment.STOP_MESSAGE)
     print("power measuring stopped")
