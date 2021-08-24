@@ -140,13 +140,13 @@ class MLP(nn.Module):
         return x
 
 class ConvNet(nn.Module):
-    def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False):
+    def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False, pruning_proba=0):
         super(ConvNet, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
         self.init_sparse = init_sparse
         self.layers = nn.ModuleList()
-
+        self.pruning_proba = pruning_proba
         if binary_flags[0]:
             if channels == 3:
                 self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
@@ -159,6 +159,10 @@ class ConvNet(nn.Module):
                     print('INIT SPARSE')
                     init_values = self.init_sparse.sample(n=nb_filters*channels*11*11)
                     self.conv1.weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters,channels,11,11))
+                    q1 = torch.quantile(torch.flatten(torch.abs(self.conv1.weight.data)),self.pruning_proba, dim=0)
+                    bin_mat = torch.abs(self.conv1.weight.data) > q1
+                    bin_mat = bin_mat.to(device)
+                    self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
             else:
                 self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
         self.layers.append(self.conv1)
@@ -169,6 +173,10 @@ class ConvNet(nn.Module):
             if init_sparse:
                 init_values_fc = self.init_sparse.sample(n=10*self.nb_filters * 8 * 8)
                 self.fc1.weight.data = torch.tensor(init_values_fc.astype('float32')).reshape((10,self.nb_filters*8*8))
+                q1 = torch.quantile(torch.flatten(torch.abs(self.fc1.weight.data)),self.pruning_proba, dim=0)
+                bin_mat = torch.abs(self.fc1.weight.data) > q1
+                bin_mat = bin_mat.to(device)
+                self.fc1.weight.data = (bin_mat)*self.fc1.weight.data
         self.layers.append(self.fc1)
         self.activations = []
         if activations is None:

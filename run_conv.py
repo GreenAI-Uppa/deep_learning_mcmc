@@ -102,9 +102,15 @@ results = []
 
 if "variance_init" in params:
     st_init = stats.Student(params['variance_init'])
-    model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
+    if 'pruning_proba' in params["optimizer"]:
+        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
+    else:
+        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
 else:
-    model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
+    if 'pruning_proba' in params["optimizer"]:
+        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
+    else:
+        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
 
 
 exp_name = params['exp_name']
