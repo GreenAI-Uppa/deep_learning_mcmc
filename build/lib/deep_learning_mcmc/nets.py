@@ -140,11 +140,13 @@ class MLP(nn.Module):
         return x
 
 class ConvNet(nn.Module):
-    def __init__(self,nb_filters,channels, binary_flags=None, activations=None):
+    def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False):
         super(ConvNet, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
+        self.init_sparse = init_sparse
         self.layers = nn.ModuleList()
+
         if binary_flags[0]:
             if channels == 3:
                 self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
@@ -153,6 +155,10 @@ class ConvNet(nn.Module):
         else:
             if channels == 3:
                 self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
+                if init_sparse:
+                    print('INIT SPARSE')
+                    init_values = self.init_sparse.sample(n=nb_filters*channels*11*11)
+                    self.conv1.weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters,channels,11,11))
             else:
                 self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
         self.layers.append(self.conv1)
@@ -160,6 +166,9 @@ class ConvNet(nn.Module):
             self.fc1 = BinaryLinear(self.nb_filters * 8 * 8, 10)
         else:
             self.fc1 = Linear4MCMC(self.nb_filters * 8 * 8, 10)
+            if init_sparse:
+                init_values_fc = self.init_sparse.sample(n=10*self.nb_filters * 8 * 8)
+                self.fc1.weight.data = torch.tensor(init_values_fc.astype('float32')).reshape((10,self.nb_filters*8*8))
         self.layers.append(self.fc1)
         self.activations = []
         if activations is None:

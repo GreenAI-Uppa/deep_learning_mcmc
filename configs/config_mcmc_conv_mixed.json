@@ -7,6 +7,7 @@
                 "activations" : ["Sigmoid", "Softmax"],
                 "nb_filters" : 64
         },
+        "variance_init": 0.00000001,
         "optimizer": {
                 "name": "mcmc",
                 "selector" : {

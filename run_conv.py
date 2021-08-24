@@ -94,7 +94,13 @@ epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
 results = []
 
-model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags, activations=activations)
+if "variance_init" in params:
+    st_init = stats.Student(params['variance_init'])
+    model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
+else:
+    model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
+
+
 exp_name = params['exp_name']
 
 if params['measure_power']:
