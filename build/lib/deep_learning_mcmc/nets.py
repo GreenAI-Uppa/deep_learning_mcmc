@@ -155,7 +155,6 @@ class ConvNet(nn.Module):
                 self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
             else:
                 self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
-
         self.layers.append(self.conv1)
         if binary_flags[1]:
             self.fc1 = BinaryLinear(self.nb_filters * 8 * 8, 10)

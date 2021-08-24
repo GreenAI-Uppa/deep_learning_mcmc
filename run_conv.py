@@ -55,10 +55,10 @@ print(training_data.data.shape)
 
 channels = training_data.data.shape[3]
 output_size = len(training_data.classes)
-if "hidden_size" not in params["architecture"]:
+if "nb_filters" not in params["architecture"]:
     layer_sizes = [input_size, output_size]
 else:
-    layer_sizes = [input_size, params["architecture"]['hidden_size'], output_size]
+    layer_sizes = [input_size, params["architecture"]['nb_filters'], output_size]
 
 if "boolean_flags" in params["architecture"]:
     boolean_flags = [bool(b) for b in params['architecture']['boolean_flags']]
