@@ -40,6 +40,8 @@ json_params = json.load(open(params['config_file']))
 for k,v in json_params.items():
     params[k] = v
 
+print('Experience config --')
+print(params)
 # getting the batch size
 batch_size = params['batch_size']
 
