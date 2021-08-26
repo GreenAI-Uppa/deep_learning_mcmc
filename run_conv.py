@@ -21,7 +21,7 @@ parser.add_argument('--measure_power',
                     help='if set, will record the power draw. This requires the deep_learning_measure package.',
                     action='store_true')
 parser.add_argument('--verbose',
-                    help='if set, will print the loss for each mcmc iteration.',
+                    help='if set, will print the details of each mcmc iteration.',
                     action='store_true')
 
 args = parser.parse_args()
