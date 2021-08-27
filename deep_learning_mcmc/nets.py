@@ -194,7 +194,7 @@ class ConvNet(nn.Module):
     def forward(self, x):
         x = self.activations[0](self.conv1(x))
         x = x.view(-1, self.nb_filters * 8 * 8)
-        x = self.activations[1](self.fc1(x))
+        x = self.fc1(x)
         return x
 
 
@@ -278,7 +278,9 @@ class AlexNet(nn.Module):
         print(x.shape)
         x = x.view(-1, self.nb_filters[4] * 6 * 6)
         for k,layer in enumerate(self.layers[5:]):
-            x = self.activations[k+5](self.fc1(x))
+            x = self.layer[k+5](x)
+            if k != 2:
+                x = self.activations[k+5](x)
             if k == 0:
                 x = nn.Dropout(p = 0.5)(x)
         return x
