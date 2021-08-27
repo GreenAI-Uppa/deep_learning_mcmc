@@ -140,6 +140,15 @@ class MLP(nn.Module):
         return x
 
 class ConvNet(nn.Module):
+    '''
+    A simple ConvNet constructor
+    nb_filters = number of filters for the convolution layer
+    channels = number of input channels (3 for CIFAR-10, 1 for MNIST)
+    binary_flags = list of 2 booleans to binarize the conv layer or the fc layer (1 = binarization)
+    activations = list of activations by layer
+    init_sparse = boolean (1 = Student heavy tailed initialization)
+    pruning_proba = exact sparsity coefficient at init and for proposal epsilon or gradient steps
+    '''
     def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False, pruning_proba=0):
         super(ConvNet, self).__init__()
         self.nb_filters = nb_filters
@@ -186,6 +195,77 @@ class ConvNet(nn.Module):
         x = self.activations[0](self.conv1(x))
         x = x.view(-1, self.nb_filters * 8 * 8)
         x = self.activations[1](self.fc1(x))
+        return x
+
+
+class AlexNet(nn.Module):
+    '''
+    AlexNet constructor
+    nb_filters = list of filters for convolution layers
+    channels = number of input channels (3 for CIFAR-10, 1 for MNIST)
+    binary_flags = list of boolean to binarize layers (1 = binarization)
+    activations = list of activations by layer
+    init_sparse = boolean (1 = Student heavy tailed initialization)
+    pruning_proba = exact sparsity coefficient at init and for proposal epsilon or gradient steps
+    '''
+    def __init__(self,nb_filters,channels, kernel_sizes, strides, paddings, binary_flags=None, activations=None, init_sparse=False, pruning_proba=0):
+        super(ConvNet, self).__init__()
+        self.nb_filters = nb_filters
+        self.channels = channels
+        self.kernel_sizes = kernel_sizes
+        self.strides = strides
+        self.paddings = paddings
+        self.init_sparse = init_sparse
+        self.layers = nn.ModuleList()
+        self.pruning_proba = pruning_proba
+        #conv layers constructor
+        in_channels = [channels]
+        for k,binary_flag in enumerate(binary_flags[:5]):
+            #loop over convolution layers 
+            if binary_flag:
+                self.layers.append(BinaryConv2d(in_channels=in_channels[k], out_channels=nb_filters[k], kernel_size=kernel_sizes[k], stride=strides[k], padding=paddings[k]))
+            else:
+                self.layers.append(Conv2d4MCMC(in_channels=in_channels[k], out_channels=nb_filters[k], kernel_size=kernel_sizes[k], stride=strides[k], padding=paddings[k]))
+                if init_sparse:
+                    print('INIT SPARSE for layer',k)
+                    init_values = self.init_sparse.sample(n=nb_filters[k]*in_channels[k]*kernel_sizes[k]*kernel_sizes[k])
+                    self.layers[k].weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters[k],in_channels[k],kernel_sizes[k],kernel_sizes[k]))
+                    q1 = torch.quantile(torch.flatten(torch.abs(self.layers[k].weight.data)),self.pruning_proba, dim=0)
+                    bin_mat = torch.abs(self.layers[k].weight.data) > q1
+                    self.layers[k].weight.data = (bin_mat)*self.layers[k].weight.data
+            in_channels.append(nb_filters[k])
+        #fully connected layers contructor
+        i_o_list = [(256 * 6 * 6, 4096),(4096, 4096),(4096, 10)]
+        for k,binary_flag in enumerate(binary_flags[5:]):
+            if binary_flag:
+                self.layers.append(BinaryLinear(i_o_list[k][0],i_o_list[k][1]))
+            else:
+                self.layers.append(Linear4MCMC(i_o_list[k][0],i_o_list[k][1]))
+                    if init_sparse:
+                        init_values_fc = self.init_sparse.sample(n=i_o_list[k][0]*i_o_list[k][1])
+                        self.layers[k+5].weight.data = torch.tensor(init_values_fc.astype('float32')).reshape((i_o_list[k][1],i_o_list[k][0]))
+                        q1 = torch.quantile(torch.flatten(torch.abs(self.layers[k+5].weight.data)),self.pruning_proba, dim=0)
+                        bin_mat = torch.abs(self.layers[k+5].weight.data) > q1
+                        self.layers[k+5].weight.data = (bin_mat)*self.layers[k+5].weight.data
+        self.activations = []
+        if activations is None:
+            self.activations = [nn.ReLU() for i in self.layers]
+        else:
+            self.activations = [ getattr(nn, activations[i])() for i in range(len(self.layers)) ]
+    def forward(self, x):
+        pooling = nn.MaxPool2d(kernel_size = 3, stride = 2)
+        for k,layer in enumerate(self.layers[:2]):
+            x = self.activations[k](layer(x))
+            x = pooling(x)
+        for k,layer in enumerate(self.layers[2:5]):
+            x = self.activations[k+2](layer(x))
+        x = pooling(x)
+        x = nn.Dropout(p = 0.5)(x)
+        x = x.view(-1, self.nb_filters * 8 * 8)
+        for k,layer in enumerate(self.layers[5:]):
+            x = self.activations[k+5](self.fc1(x))
+            if k == 0:
+                x = nn.Dropout(p = 0.5)(x)
         return x
 
 mse_loss = nn.MSELoss()
