@@ -209,7 +209,7 @@ class AlexNet(nn.Module):
     pruning_proba = exact sparsity coefficient at init and for proposal epsilon or gradient steps
     '''
     def __init__(self,nb_filters,channels, kernel_sizes, strides, paddings, binary_flags=None, activations=None, init_sparse=False, pruning_proba=0):
-        super(ConvNet, self).__init__()
+        super(AlexNet, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
         self.kernel_sizes = kernel_sizes
@@ -230,10 +230,14 @@ class AlexNet(nn.Module):
                     print('INIT SPARSE for layer',k)
                     init_values = self.init_sparse.sample(n=nb_filters[k]*in_channels[k]*kernel_sizes[k]*kernel_sizes[k])
                     self.layers[k].weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters[k],in_channels[k],kernel_sizes[k],kernel_sizes[k]))
+                    '''
+                    exact sparsity impossible: quantile function do not "scale" to alexnet :)
                     q1 = torch.quantile(torch.flatten(torch.abs(self.layers[k].weight.data)),self.pruning_proba, dim=0)
                     bin_mat = torch.abs(self.layers[k].weight.data) > q1
                     self.layers[k].weight.data = (bin_mat)*self.layers[k].weight.data
+                    '''
             in_channels.append(nb_filters[k])
+            print('init of layer',k,'OK')
         #fully connected layers contructor
         i_o_list = [(256 * 6 * 6, 4096),(4096, 4096),(4096, 10)]
         for k,binary_flag in enumerate(binary_flags[5:]):
@@ -241,12 +245,17 @@ class AlexNet(nn.Module):
                 self.layers.append(BinaryLinear(i_o_list[k][0],i_o_list[k][1]))
             else:
                 self.layers.append(Linear4MCMC(i_o_list[k][0],i_o_list[k][1]))
-                    if init_sparse:
-                        init_values_fc = self.init_sparse.sample(n=i_o_list[k][0]*i_o_list[k][1])
-                        self.layers[k+5].weight.data = torch.tensor(init_values_fc.astype('float32')).reshape((i_o_list[k][1],i_o_list[k][0]))
-                        q1 = torch.quantile(torch.flatten(torch.abs(self.layers[k+5].weight.data)),self.pruning_proba, dim=0)
-                        bin_mat = torch.abs(self.layers[k+5].weight.data) > q1
-                        self.layers[k+5].weight.data = (bin_mat)*self.layers[k+5].weight.data
+                if init_sparse:
+                    print('INIT SPARSE for layer',k+5)
+                    init_values_fc = self.init_sparse.sample(n=i_o_list[k][0]*i_o_list[k][1])
+                    self.layers[k+5].weight.data = torch.tensor(init_values_fc.astype('float32')).reshape((i_o_list[k][1],i_o_list[k][0]))
+                    '''
+                    exact sparsity impossible: quantile function do not "scale" to alexnet :)
+                    q1 = torch.quantile(torch.flatten(torch.abs(self.layers[k+5].weight.data)),self.pruning_proba, dim=0)
+                    bin_mat = torch.abs(self.layers[k+5].weight.data) > q1
+                    self.layers[k+5].weight.data = (bin_mat)*self.layers[k+5].weight.data
+                    '''
+            print('init of layer',k+5,'OK')
         self.activations = []
         if activations is None:
             self.activations = [nn.ReLU() for i in self.layers]
