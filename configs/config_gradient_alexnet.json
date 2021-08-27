@@ -1,0 +1,17 @@
+{
+  "batch_size": 64,
+  "epochs": 3,
+  "exp_name": "test",
+  "optimizer": {
+	  "name":"grad",
+	  "lr": 0.001,
+    "pruning_proba": 0.5
+  },
+  "dataset": "CIFAR10",
+  "architecture":{
+    "activations" : ["ReLU","ReLU","ReLU","ReLU","ReLU","ReLU","ReLU","Softmax"],
+	  "nb_filters": [96,256,384,384,256]
+  },
+  "measure_power" : 0
+}
+
