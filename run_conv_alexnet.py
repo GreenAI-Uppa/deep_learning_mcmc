@@ -107,14 +107,14 @@ results = {}
 if "variance_init" in params:
     st_init = stats.Student(params['variance_init'])
     if 'pruning_proba' in params["optimizer"]:
-        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [11,5,3,3,3],[4,1,1,1,1],[0,2,1,1,1],binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
+        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [3,3,3,3,3],[1,1,1,1,1],[0,2,1,1,1],binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
     else:
-        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [11,5,3,3,3],[4,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
+        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [3,3,3,3,3],[1,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
 else:
     if 'pruning_proba' in params["optimizer"]:
-        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [11,5,3,3,3],[4,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
+        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [3,3,3,3,3],[1,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
     else:
-        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [11,5,3,3,3],[4,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations)
+        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [3,3,3,3,3],[1,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations)
 
 
 exp_name = params['exp_name']

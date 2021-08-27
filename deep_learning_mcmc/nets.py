@@ -264,13 +264,19 @@ class AlexNet(nn.Module):
     def forward(self, x):
         pooling = nn.MaxPool2d(kernel_size = 3, stride = 2)
         for k,layer in enumerate(self.layers[:2]):
+            print('forwarding layer',k)
+            print(x.shape,'is the size of the input')
             x = self.activations[k](layer(x))
+            print(x.shape,'is the size of the output before pooling')
             x = pooling(x)
+            print(x.shape,'is the size of the output after pooling')
+            print('forward OK')
         for k,layer in enumerate(self.layers[2:5]):
             x = self.activations[k+2](layer(x))
         x = pooling(x)
         x = nn.Dropout(p = 0.5)(x)
-        x = x.view(-1, self.nb_filters * 8 * 8)
+        print(x.shape)
+        x = x.view(-1, self.nb_filters[4] * 6 * 6)
         for k,layer in enumerate(self.layers[5:]):
             x = self.activations[k+5](self.fc1(x))
             if k == 0:
