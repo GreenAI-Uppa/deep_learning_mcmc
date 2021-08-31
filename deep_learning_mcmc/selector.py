@@ -19,7 +19,7 @@ def get_idces_uniform_linear(neighborhood_size):
 
 def get_idces_line_linear():
     """
-    select one row of a linear layer
+    select one row of a fully connected layer
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
@@ -44,12 +44,9 @@ def get_idces_filter_conv():
 
 def get_idces_uniform_conv(neighborhood_size):
     """
-    select neighborhood_size weights from a linear layer according to a uniform law
+    select neighborhood_size weights from a conv layer according to a uniform law
     """
     def get_idx(layer):
-        """
-        will select one row of a linear layer
-        """
         n_filter, channels, k1, k2 = layer.weight.data.shape
         idx_filter = torch.randint(0, n_filter, (1,))
         idx_f = torch.ones((neighborhood_size,1)) * idx_filter
