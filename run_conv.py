@@ -1,7 +1,9 @@
 import time, os, datetime
-from torchvision import datasets
+from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
+from torchvision.datasets import MNIST
+
 import json
 import torch
 import numpy as np, math
@@ -24,6 +26,35 @@ parser.add_argument('--verbose',
                     help='if set, will print the details of each mcmc iteration.',
                     action='store_true')
 
+
+args = parser.parse_args()
+params = vars(args)
+json_params = json.load(open(params['config_file']))
+for k,v in json_params.items():
+    params[k] = v
+
+dataset = params['dataset']
+
+if dataset == 'MNIST':
+    print('MNIST DATASET')
+    channels = 1
+    transform = transforms.Compose([transforms.ToTensor()])
+    training_data = MNIST(root = args.data_folder, train=True, download=True, transform=transform)
+    test_data = MNIST(root = args.data_folder, train=False, download=True, transform=transform)
+else:
+    print('CIFAR10 DATASET')
+    channels = 3
+    training_data = datasets.CIFAR10(root=args.data_folder,
+        train=True,
+        download=True,
+        transform=ToTensor())
+
+    test_data = datasets.CIFAR10(root=args.data_folder,
+        train=False,
+        download=True,
+        transform=ToTensor())
+
+'''
 args = parser.parse_args()
 training_data = datasets.CIFAR10(root=args.data_folder,
     train=True,
@@ -34,11 +65,16 @@ test_data = datasets.CIFAR10(root=args.data_folder,
     train=False,
     download=True,
     transform=ToTensor())
+'''
+examples = enumerate(training_data)
+batch_idx, (ex_train_data, example_targets) = next(examples)
+examples = enumerate(test_data)
+batch_idx, (ex_test_data, example_targets) = next(examples)
 
-params = vars(args)
-json_params = json.load(open(params['config_file']))
-for k,v in json_params.items():
-    params[k] = v
+print('Image input size',ex_train_data.shape)
+img_size = ex_train_data.shape[1]
+
+input_size = ex_train_data.shape[0] * ex_train_data.shape[1] * ex_train_data.shape[2]
 
 print('Experience config --')
 print(params)
@@ -50,12 +86,10 @@ train_dataloader = DataLoader(training_data, batch_size=batch_size, num_workers=
 test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=16)
 
 # setting the model
-input_size = training_data.data.shape[1] * training_data.data.shape[2] * training_data.data.shape[3]
-print(training_data.data.shape)
 
 
+print('Training size',training_data.data.shape)
 
-channels = training_data.data.shape[3]
 output_size = len(training_data.classes)
 if "nb_filters" not in params["architecture"]:
     layer_sizes = [input_size, output_size]
@@ -129,9 +163,10 @@ eval_time = 0
 start_all = time.time()
 for t in range(epochs):
     bin_mat = torch.abs(model.conv1.weight.data) > 0
-    print(torch.sum(bin_mat),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
-    bin_mat = torch.abs(model.fc1.weight.data) > 0
-    print(torch.sum(bin_mat),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 1')
+    if "pruning_proba" in params["optimizer"] and params["optimizer"]["pruning_proba"]>0:
+        print(torch.sum(bin_mat),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
+        bin_mat = torch.abs(model.fc1.weight.data) > 0
+        print(torch.sum(bin_mat),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 1')
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
     if use_gradient:
