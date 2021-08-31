@@ -21,7 +21,7 @@
                        {"layer_distr" :0.125, "get_idx":"get_idces_filter_conv"},
                        {"layer_distr" :0.125, "get_idx":"get_idces_uniform_linear", "get_idx_param":2000},
                        {"layer_distr" :0.125, "get_idx":"get_idces_uniform_linear", "get_idx_param":1000},
-                       {"layer_distr" :0.125, "get_idx":"get_idces_uniform_linear", "get_idx_param":1000},]
+                       {"layer_distr" :0.125, "get_idx":"get_idces_uniform_linear", "get_idx_param":1000}]
                 },
                 "samplers" : [
                     {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000},
