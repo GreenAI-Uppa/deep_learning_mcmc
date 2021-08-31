@@ -47,8 +47,8 @@ class GradientOptimizer(Optimizer):
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
         for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
             layer.weight.data -=  gg[2*i] * self.lr
-            if self.pruning_proba>0:
-                q1 = torch.quantile(torch.flatten(torch.abs(model.conv1.weight.data)),self.pruning_proba, dim=0)
+            if self.pruning_proba>0 and len(model.layers)<3:#quantile do not scale with alexnet
+                q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
                 bin_mat = torch.abs(layer.weight.data) > q1
                 bin_mat = bin_mat.to(device)
                 layer.weight.data = (bin_mat)*layer.weight.data

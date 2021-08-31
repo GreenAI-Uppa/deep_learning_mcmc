@@ -57,17 +57,14 @@ print(training_data.data.shape)
 
 channels = training_data.data.shape[3]
 output_size = len(training_data.classes)
-if "nb_filters" not in params["architecture"]:
-    layer_sizes = [input_size, output_size]
-else:
-    layer_sizes = [input_size, params["architecture"]['nb_filters'], output_size]
 
 if "boolean_flags" in params["architecture"]:
     boolean_flags = [bool(b) for b in params['architecture']['boolean_flags']]
 else:
-    boolean_flags = [False for _ in layer_sizes[1:]]
+    boolean_flags = [False for _ in range(8)]
+
 if "activations" not in params["architecture"]:
-    activations=None
+    print('No activations defined')
 else:
     activations = params["architecture"]["activations"]
 
@@ -104,17 +101,20 @@ epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
 results = {}
 
+kernel_sizes = [11,5,3,3,3]
+strides=[1,1,1,1,1]
+paddings = [1,2,1,1,1]
 if "variance_init" in params:
     st_init = stats.Student(params['variance_init'])
     if 'pruning_proba' in params["optimizer"]:
-        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [3,3,3,3,3],[1,1,1,1,1],[0,2,1,1,1],binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
+        model = nets.AlexNet(params['architecture']['nb_filters'], channels, kernel_sizes, strides, paddings,binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
     else:
-        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [3,3,3,3,3],[1,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
+        model = nets.AlexNet(params['architecture']['nb_filters'], channels, kernel_sizes, strides, paddings, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
 else:
     if 'pruning_proba' in params["optimizer"]:
-        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [3,3,3,3,3],[1,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
+        model = nets.AlexNet(params['architecture']['nb_filters'], channels, kernel_sizes, strides, paddings, binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
     else:
-        model = nets.AlexNet(params['architecture']['nb_filters'], channels, [3,3,3,3,3],[1,1,1,1,1],[0,2,1,1,1], binary_flags=boolean_flags,  activations=activations)
+        model = nets.AlexNet(params['architecture']['nb_filters'], channels, kernel_sizes, strides, paddings, binary_flags=boolean_flags,  activations=activations)
 
 
 exp_name = params['exp_name']
@@ -123,8 +123,8 @@ if params['measure_power']:
     from deep_learning_power_measure.power_measure import experiment, parsers
     input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
     driver = parsers.JsonParser(os.path.join(os.getcwd(),'power_measure'))
-    exp = experiment.Experiment(driver)
-    p, q = exp.measure_yourself(model=model,input_size=input_image_size,period=2)
+    exp = experiment.Experiment(driver,model=model,input_size=input_image_size)
+    p, q = exp.measure_yourself(period=2)
 model = model.to(device)
 training_time = 0
 eval_time = 0

@@ -191,7 +191,6 @@ class ConvNet(nn.Module):
             self.activations = [nn.ReLU() for i in self.layers ]
         else:
             self.activations = [ getattr(nn, activations[i])() for i in range(len(self.layers)) ]
-
     def forward(self, x):
         x = self.activations[0](self.conv1(x))
         x = x.view(-1, self.nb_filters * 8 * 8)
@@ -238,9 +237,9 @@ class AlexNet(nn.Module):
                     self.layers[k].weight.data = (bin_mat)*self.layers[k].weight.data
                     '''
             in_channels.append(nb_filters[k])
-            print('init of layer',k,'OK')
+            print('init of layer',k+1,'OK')
         #fully connected layers contructor
-        i_o_list = [(256 * 6 * 6, 4096),(4096, 4096),(4096, 10)]
+        i_o_list = [(nb_filters[-1] * 6 * 6, 4096),(4096, 4096),(4096, 10)]
         for k,binary_flag in enumerate(binary_flags[5:]):
             if binary_flag:
                 self.layers.append(BinaryLinear(i_o_list[k][0],i_o_list[k][1]))
@@ -256,35 +255,31 @@ class AlexNet(nn.Module):
                     bin_mat = torch.abs(self.layers[k+5].weight.data) > q1
                     self.layers[k+5].weight.data = (bin_mat)*self.layers[k+5].weight.data
                     '''
-            print('init of layer',k+5,'OK')
+            print('init of layer',k+6,'OK')
         self.activations = []
         if activations is None:
-            self.activations = [nn.ReLU() for i in self.layers]
+            self.activations = [nn.ReLU(inplace=True) for i in self.layers]
         else:
             self.activations = [ getattr(nn, activations[i])() for i in range(len(self.layers)) ]
     def forward(self, x):
-        pooling = nn.MaxPool2d(kernel_size = 3, stride = 2)
         for k,layer in enumerate(self.layers[:2]):
-            print('forwarding layer',k)
-            print(x.shape,'is the size of the input')
             x = self.activations[k](layer(x))
-            print(x.shape,'is the size of the output before pooling')
-            x = pooling(x)
-            print(x.shape,'is the size of the output after pooling')
-            print('forward OK')
+            x = nn.MaxPool2d(kernel_size = 2, stride = 2)(x)
         for k,layer in enumerate(self.layers[2:5]):
             x = self.activations[k+2](layer(x))
-        x = pooling(x)
+        x = nn.MaxPool2d(kernel_size = 3, stride = 2)(x)
+        x = nn.AdaptiveAvgPool2d((6, 6))(x)
+        x = x.view(x.size(0), 256 * 6 * 6)
         x = nn.Dropout(p = 0.5)(x)
-        print(x.shape)
         x = x.view(-1, self.nb_filters[4] * 6 * 6)
         for k,layer in enumerate(self.layers[5:]):
-            x = self.layer[k+5](x)
+            x = self.layers[k+5](x)
             if k != 2:
                 x = self.activations[k+5](x)
             if k == 0:
                 x = nn.Dropout(p = 0.5)(x)
         return x
+
 
 mse_loss = nn.MSELoss()
 def my_mse_loss(x,y):
