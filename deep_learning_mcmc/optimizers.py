@@ -130,6 +130,13 @@ class MCMCOptimizer(Optimizer):
 
             # applying the changes to get the new value of the loss
             self.selector.update(model, neighborhood, epsilon)
+            #to prune or not to prune
+            if self.pruning_proba>0 and len(model.layers)<3:#quantile do not scale with alexnet
+                for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
+                    q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
+                    bin_mat = torch.abs(layer.weight.data) > q1
+                    bin_mat = bin_mat.to(device)
+                    layer.weight.data = (bin_mat)*layer.weight.data
             pred = model(X)
             loss_prop = loss_fn(pred, y)
 
@@ -145,17 +152,7 @@ class MCMCOptimizer(Optimizer):
             if rho > torch.rand(1).to(device):
                 # accepting, keeping the new value of the loss
                 ar.incr_acc_count(key)
-                if self.pruning_proba>0 and len(model.layers)<3:#quantile do not scale with alexnet
-                    for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
-                        q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
-                        bin_mat = torch.abs(layer.weight.data) > q1
-                        bin_mat = bin_mat.to(device)
-                        layer.weight.data = (bin_mat)*layer.weight.data
-                    #update loss to loss_prop of the sparsigy version
-                    pred = model(X)
-                    loss = loss_fn(pred, y)
-                else:
-                    loss = loss_prop
+                loss = loss_prop
                 decision = 'accepted'
             else:
                 # not accepting, so undoing the change
