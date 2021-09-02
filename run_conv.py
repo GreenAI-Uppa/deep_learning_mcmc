@@ -162,8 +162,8 @@ training_time = 0
 eval_time = 0
 start_all = time.time()
 for t in range(epochs):
-    bin_mat = torch.abs(model.conv1.weight.data) > 0
     if "pruning_proba" in params["optimizer"] and params["optimizer"]["pruning_proba"]>0:
+        bin_mat = torch.abs(model.conv1.weight.data) > 0
         print(torch.sum(bin_mat),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
         bin_mat = torch.abs(model.fc1.weight.data) > 0
         print(torch.sum(bin_mat),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 1')
