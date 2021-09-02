@@ -165,7 +165,7 @@ class ConvNet(nn.Module):
             if channels == 3:
                 self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
                 if init_sparse:
-                    print('INIT SPARSE')
+                    print('INIT SPARSE for CIFAR10')
                     init_values = self.init_sparse.sample(n=nb_filters*channels*11*11)
                     self.conv1.weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters,channels,11,11))
                     q1 = torch.quantile(torch.flatten(torch.abs(self.conv1.weight.data)),self.pruning_proba, dim=0)
@@ -173,6 +173,13 @@ class ConvNet(nn.Module):
                     self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
             else:
                 self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
+                if init_sparse:
+                    print('INIT SPARSE for MNIST')
+                    init_values = self.init_sparse.sample(n=nb_filters*7*7)
+                    self.conv1.weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters,channels,7,7))
+                    q1 = torch.quantile(torch.flatten(torch.abs(self.conv1.weight.data)),self.pruning_proba, dim=0)
+                    bin_mat = torch.abs(self.conv1.weight.data) > q1
+                    self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
         self.layers.append(self.conv1)
         if binary_flags[1]:
             self.fc1 = BinaryLinear(self.nb_filters * 8 * 8, 10)
