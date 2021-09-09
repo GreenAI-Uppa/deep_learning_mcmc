@@ -310,3 +310,57 @@ def evaluate(dataloader, model, loss_fn):
     #test_loss /= size
     correct /= size
     return test_loss, correct
+
+def evaluate_sparse(dataloader, model, loss_fn, proba,fc=True):
+    """
+    evaluate a sparse version of a linear model
+    dataloader, model, and loss_fn : see evaluate function
+    threshold : values of the threshold in the weights matrix associated to the first layer of the MLP (not apply to the bias term)
+    Return loss, acccuracy and the percentage of values kept after threshold in the first layer
+    """
+    device = next(model.parameters()).device
+    size = len(dataloader.dataset)
+    test_loss, correct = 0, 0
+    model_sparse = ConvNet(model.nb_filters,model.channels)
+    model_sparse = model_sparse.to(device)
+    #shrinkage of the convlayer
+    #weights
+    q1 = torch.quantile(torch.flatten(torch.abs(model.conv1.weight.data)),proba, dim=0)
+    bin_mat1 = torch.abs(model.conv1.weight.data) > q1
+    bin_mat1 = bin_mat1.to(device)
+    model_sparse.conv1.weight.data = (bin_mat1)*model.conv1.weight.data
+    #bias
+    q1bias = torch.quantile(torch.flatten(torch.abs(model.conv1.bias.data)),proba, dim=0)
+    bin_mat1bias = torch.abs(model.conv1.bias.data)> q1bias
+    bin_mat1bias = bin_mat1bias.to(device)
+    model_sparse.conv1.bias.data = (bin_mat1bias)*model.conv1.bias.data
+    if fc:
+        #shrinkage of fc layer
+        #weights
+        q2 = torch.quantile(torch.flatten(torch.abs(model.fc1.weight.data)),proba,dim=0)
+        bin_mat2 = torch.abs(model.fc1.weight.data) > q2
+        bin_mat2 = bin_mat2.to(device)
+        model_sparse.fc1.weight.data = (bin_mat2)*model.fc1.weight.data
+        #bias
+        q2bias = torch.quantile(torch.flatten(torch.abs(model.fc1.bias.data)),proba, dim=0)
+        bin_mat2bias = torch.abs(model.fc1.bias.data) > q2bias
+        bin_mat2bias = bin_mat2bias.to(device)
+        model_sparse.fc1.bias.data = (bin_mat2bias)*model.fc1.bias.data
+    else: 
+        model_sparse.fc1.weight.data = model.fc1.weight.data
+        model_sparse.fc1.bias.data = model.fc1.bias.data
+    if fc:
+        kept = float((torch.sum(bin_mat1)+torch.sum(bin_mat2))/(float(torch.flatten(bin_mat1).shape[0])+float(torch.flatten(bin_mat2).shape[0])))
+    else:
+        kept = float(torch.sum(bin_mat1))/float(torch.flatten(bin_mat1).shape[0])
+    with torch.no_grad():
+        for X, y in dataloader:
+            X = X.to(device)
+            y = y.to(device)
+            pred_s = model_sparse(X)
+            test_loss += loss_fn(pred_s, y).item()
+            correct += (pred_s.argmax(1) == y).type(torch.float).sum().item()
+    test_loss /= size
+    correct /= size
+    return test_loss, correct, kept
+
