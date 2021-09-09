@@ -149,7 +149,7 @@ class ConvNet(nn.Module):
     init_sparse = boolean (1 = Student heavy tailed initialization)
     pruning_proba = exact sparsity coefficient at init and for proposal epsilon or gradient steps
     '''
-    def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False, pruning_proba=0):
+    def __init__(self,nb_filters,channels, binary_flags=[None], activations=None, init_sparse=False, pruning_proba=0):
         super(ConvNet, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
