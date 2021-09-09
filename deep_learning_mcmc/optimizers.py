@@ -120,11 +120,6 @@ class MCMCOptimizer(Optimizer):
             epsilon = self.sampler.sample(self.selector.neighborhood_info)
             if epsilon is not None:
                 epsilon = torch.tensor(epsilon.astype('float32')).to(device)
-                if self.pruning_proba>0:
-                    q1 = torch.quantile(torch.flatten(torch.abs(epsilon)),self.pruning_proba, dim=0)
-                    bin_mat = torch.abs(epsilon) > q1
-                    bin_mat = bin_mat.to(device)
-                    epsilon = (bin_mat)*epsilon
             # getting the ratio of the students
             student_ratio = self.prior.get_ratio(epsilon, params_line, self.selector.neighborhood_info)
 
