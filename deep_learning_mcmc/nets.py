@@ -149,14 +149,14 @@ class ConvNet(nn.Module):
     init_sparse = boolean (1 = Student heavy tailed initialization)
     pruning_proba = exact sparsity coefficient at init and for proposal epsilon or gradient steps
     '''
-    def __init__(self,nb_filters,channels, binary_flags=[None], activations=None, init_sparse=False, pruning_proba=0):
+    def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False, pruning_proba=0):
         super(ConvNet, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
         self.init_sparse = init_sparse
         self.layers = nn.ModuleList()
         self.pruning_proba = pruning_proba
-        if binary_flags[0]:
+        if binary_flags and binary_flags[0]:
             if channels == 3:
                 self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
             else:
@@ -181,7 +181,7 @@ class ConvNet(nn.Module):
                     bin_mat = torch.abs(self.conv1.weight.data) > q1
                     self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
         self.layers.append(self.conv1)
-        if binary_flags[1]:
+        if binary_flags and binary_flags[1]:
             self.fc1 = BinaryLinear(self.nb_filters * 8 * 8, 10)
         else:
             self.fc1 = Linear4MCMC(self.nb_filters * 8 * 8, 10)
