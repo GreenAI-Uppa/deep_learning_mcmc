@@ -212,3 +212,5 @@ if params['measure_power']:
     driver = parsers.JsonParser("power_measure")
     exp_result = experiment.ExpResults(driver)
     exp_result.print()
+
+print(exp_name+'.json generated')
