@@ -199,7 +199,10 @@ for t in range(epochs):
             result['sparse test'] = [{'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }]
         else:
             result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
-    
+    for i in range(9):
+        proba = 0.91+i*0.01
+        loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba)
+        result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
     torch.save(model, exp_name+'.th')
     result['eval_time'] = time.time() - end_epoch
     eval_time += time.time() - end_epoch
