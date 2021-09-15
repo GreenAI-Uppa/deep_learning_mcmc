@@ -161,6 +161,7 @@ model = model.to(device)
 training_time = 0
 eval_time = 0
 start_all = time.time()
+previous_w_updated = 0
 for t in range(epochs):
     if "pruning_proba" in params["optimizer"] and params["optimizer"]["pruning_proba"]>0:
         bin_mat = torch.abs(model.conv1.weight.data) > 0
@@ -180,12 +181,24 @@ for t in range(epochs):
     result['end_training_epoch'] = datetime.datetime.now().__str__() 
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
     if use_gradient:
+        result['iterations'] = (t+1)*int(50000/batch_size)
+        result['passforwards'] = (t+1)*50000
+        result['backwards'] = (t+1)*50000
+        result['weights_updated'] = (t+1)*int(50000/batch_size)*64266
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     else:
+        result['iterations'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
+        result['passforwards'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
+        result['backwards'] = 0
         print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
         print("Acceptance ratio",acceptance_ratio)
     if not use_gradient:
         result['accept_ratio'] = acceptance_ratio.to_dict()
+        acc_0 = acceptance_ratio.to_dict()["layer_0"]
+        acc_1 = acceptance_ratio.to_dict()["layer_1"]
+        if 'get_idx_param' in params['optimizer']['selector']['layer_conf'][1]:
+            result['weights_updated'] = previous_w_updated + int(50000/batch_size)*params["optimizer"]["iter_mcmc"]*(0.5*363+0.5*layer_conf['get_idx_param'])
+            previous_w_updated = result['weights_updated']
     result['train_loss'] = loss
     result['train_accuracy'] = accuracy
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
@@ -217,3 +230,5 @@ if params['measure_power']:
     exp_result.print()
 
 print(exp_name+'.json generated')
+
+print('Report is coming at '+str(exp_name)+'.csv')
