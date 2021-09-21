@@ -1,0 +1,16 @@
+{
+        "batch_size": 64,
+        "epochs": 100,
+        "exp_name": "binary_connect",
+        "architecture": {
+                "boolean_flags": [1, 0],
+                "activations" : ["Sigmoid", "Softmax"],
+                "nb_filters" : 64
+        },
+        "optimizer": {
+                "name": "binaryConnect",
+                "lr": 0.01
+        },
+        "dataset": "CIFAR"
+}
+

@@ -1,6 +1,7 @@
 from torch import nn
 import torch
 import numpy as np
+import copy
 from abc import ABC, abstractmethod
 import torch.nn.functional as F
 
@@ -62,6 +63,7 @@ class BinaryConv2d(Conv2d4MCMC):
 
     def undo(self, neighborhood, proposal):
         self.update(neighborhood, proposal)
+
 
 class Linear4MCMC(nn.Linear):
     is_binary = False
@@ -197,11 +199,30 @@ class ConvNet(nn.Module):
             self.activations = [nn.ReLU() for i in self.layers ]
         else:
             self.activations = [ getattr(nn, activations[i])() for i in range(len(self.layers)) ]
+
     def forward(self, x):
         x = self.activations[0](self.conv1(x))
         x = x.view(-1, self.nb_filters * 8 * 8)
         x = self.fc1(x)
         return x
+
+class BinaryConnectConv(ConvNet):
+    def __init__(self,nb_filters,channels, binary_flags=[True, False], activations=None, init_sparse=False, pruning_proba=0):
+
+        # building a non binary convnet first
+        super().__init__(nb_filters,channels, binary_flags=None, activations=activations, init_sparse=init_sparse, pruning_proba=pruning_proba)
+        """copy the real layers and binarize the others accoding to the binary_flags"""
+        if binary_flags is None:
+            raise Exception("binary_flags is None, it doesn't make sense to use BinaryConnect without binary_layers. Please set, for instance, binary_flags=[True, False] ")
+        # binarizing the required layers and saving a copy of the real weights
+        self.layers_reals = []
+        for i, layer in enumerate(self.layers):
+             if binary_flags[i]:
+                 self.layers_reals.append([copy.deepcopy(layer.weight.data), copy.deepcopy(layer.bias.data)])
+                 layer.weight.data = np.sign(layer.weight.data)
+                 layer.bias.data = np.sign(layer.bias.data)
+             else:
+                 self.layers_reals.append(None)
 
 
 class AlexNet(nn.Module):
@@ -227,7 +248,7 @@ class AlexNet(nn.Module):
         #conv layers constructor
         in_channels = [channels]
         for k,binary_flag in enumerate(binary_flags[:5]):
-            #loop over convolution layers 
+            #loop over convolution layers
             if binary_flag:
                 self.layers.append(BinaryConv2d(in_channels=in_channels[k], out_channels=nb_filters[k], kernel_size=kernel_sizes[k], stride=strides[k], padding=paddings[k]))
             else:
@@ -346,7 +367,7 @@ def evaluate_sparse(dataloader, model, loss_fn, proba,fc=True):
         bin_mat2bias = torch.abs(model.fc1.bias.data) > q2bias
         bin_mat2bias = bin_mat2bias.to(device)
         model_sparse.fc1.bias.data = (bin_mat2bias)*model.fc1.bias.data
-    else: 
+    else:
         model_sparse.fc1.weight.data = model.fc1.weight.data
         model_sparse.fc1.bias.data = model.fc1.bias.data
     if fc:
@@ -363,4 +384,3 @@ def evaluate_sparse(dataloader, model, loss_fn, proba,fc=True):
     test_loss /= size
     correct /= size
     return test_loss, correct, kept
-
