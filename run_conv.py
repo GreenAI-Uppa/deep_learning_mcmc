@@ -3,7 +3,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 from torchvision.datasets import MNIST
-
+import math
 import json
 import torch
 import numpy as np, math
@@ -216,7 +216,8 @@ for t in range(epochs):
         proba = 0.91+i*0.01
         loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba)
         result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
-    torch.save(model, exp_name+'.th')
+    if int(math.log(t+1,10)) == math.log(t+1,10):
+        torch.save(model, exp_name+str(t+1)+'.th')
     result['eval_time'] = time.time() - end_epoch
     eval_time += time.time() - end_epoch
     result['end_eval'] = datetime.datetime.now().__str__()
@@ -231,4 +232,4 @@ if params['measure_power']:
 
 print(exp_name+'.json generated')
 
-print('Report is coming at '+str(exp_name)+'.csv')
+print('Report is written at '+str(exp_name)+'.csv')
