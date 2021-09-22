@@ -32,7 +32,7 @@ class Conv2d4MCMC(nn.Conv2d):
 
     def get_idx_flattened_1_filter(self, idx_filter):
         """
-        return a 4 x num_params tensor which contains the indices of one filter coefficients
+        return a num_params x 4 tensor which contains the indices of one filter coefficients
         """
         channels, k1, k2 = self.weight.data[0].shape
         idces_w = torch.ones(0,3)
