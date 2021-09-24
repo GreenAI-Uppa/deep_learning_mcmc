@@ -54,18 +54,7 @@ else:
         download=True,
         transform=ToTensor())
 
-'''
-args = parser.parse_args()
-training_data = datasets.CIFAR10(root=args.data_folder,
-    train=True,
-    download=True,
-    transform=ToTensor())
 
-test_data = datasets.CIFAR10(root=args.data_folder,
-    train=False,
-    download=True,
-    transform=ToTensor())
-'''
 examples = enumerate(training_data)
 batch_idx, (ex_train_data, example_targets) = next(examples)
 examples = enumerate(test_data)
@@ -107,11 +96,12 @@ else:
 
 
 
-use_gradient = params['optimizer']["name"] == 'grad'
+use_gradient = params['optimizer']["name"] == 'grad' or params['optimizer']["name"] == 'binaryConnect'
+
 # setting the optimizer
 if params["optimizer"]["name"] == "grad":
     if 'pruning_proba' in params["optimizer"]:
-        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'],pruning_proba=params["optimizer"]['pruning_proba'])
+        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'], pruning_proba=params["optimizer"]['pruning_proba'])
     else:
         optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
 elif params["optimizer"]["name"] == "binaryConnect":
@@ -138,18 +128,7 @@ epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
 results = {}
 
-if "variance_init" in params:
-    st_init = stats.Student(params['variance_init'])
-    if 'pruning_proba' in params["optimizer"]:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
-    else:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
-else:
-    if 'pruning_proba' in params["optimizer"]:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
-    else:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
-
+model = nets.BinaryConnectConv(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
 
 exp_name = params['exp_name']
 

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import torch
+import random
 import sys
 current_module = sys.modules[__name__]
 from typing import Tuple
@@ -11,7 +12,15 @@ def get_idces_uniform_linear(neighborhood_size):
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
-        idces_w = torch.cat((torch.randint(0,n_output,(neighborhood_size,1)), torch.randint(0,n_input+1,(neighborhood_size,1))), dim=1)
+        f_size = n_output * n_input
+        if neighborhood_size > f_size:
+            raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(f_size)+"\n neighborhood_size should be lower than this number")
+        a, b = torch.arange(n_output), torch.arange(n_input)
+        idces_w = torch.cat((a.repeat(n_input).reshape(f_size,1),b.repeat_interleave(n_output).reshape(f_size,1)), dim=1)
+        idces_of_idces = list(range(f_size))
+        random.shuffle(idces_of_idces)
+        idces_of_idces  = idces_of_idces[:neighborhood_size]
+        idces_w = idces_w[idces_of_idces,:].long()
         idces_b = idces_w[idces_w[:,1]==n_input][:,0]
         idces_w = idces_w[idces_w[:,1]<n_input]
         return idces_w, idces_b
@@ -36,10 +45,11 @@ def get_idces_filter_conv():
     def get_idx(layer):
         n_filter, channels, k1, k2 = layer.weight.data.shape
         idx_filter = torch.randint(0, n_filter, (1,))
-        n_params = channels * k1 * k2
         idces_w = layer.get_idx_flattened_1_filter(idx_filter)
         return idces_w, idx_filter
     return get_idx
+
+# TODO number of nb_filters
 
 
 def get_idces_uniform_conv(neighborhood_size):
@@ -49,11 +59,14 @@ def get_idces_uniform_conv(neighborhood_size):
     def get_idx(layer):
         n_filter, channels, k1, k2 = layer.weight.data.shape
         idx_filter = torch.randint(0, n_filter, (1,))
-        idx_f = torch.ones((neighborhood_size,1)) * idx_filter
-        idx_chan = torch.randint(0, channels, (neighborhood_size,1) )
-        idx_k1 = torch.randint(0, k1, (neighborhood_size,1))
-        idx_k2 = torch.randint(0, k2, (neighborhood_size,1))
-        idces_w = torch.cat((idx_f, idx_chan, idx_k1, idx_k2), dim=1).long()
+        filter_idces = layer.get_idx_flattened_1_filter(idx_filter)
+        f_size = filter_idces.shape[0]
+        if neighborhood_size > f_size:
+            raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(f_size)+"\n neighborhood_size should be lower than this number")
+        idces_of_idces = list(range(f_size))
+        random.shuffle(idces_of_idces)
+        idces_of_idces  = idces_of_idces[:neighborhood_size]
+        idces_w = filter_idces[idces_of_idces,:].long()
         return idces_w, idx_filter
     return get_idx
 

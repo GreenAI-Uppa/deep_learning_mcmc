@@ -37,6 +37,7 @@ class GradientOptimizer(Optimizer):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
         self.pruning_proba = pruning_proba
+
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
         SGD optimization
@@ -53,6 +54,37 @@ class GradientOptimizer(Optimizer):
                 bin_mat = bin_mat.to(device)
                 layer.weight.data = (bin_mat)*layer.weight.data
             layer.bias.data -=  gg[2*i+1] * self.lr
+
+class BinaryConnectOptimizer(Optimizer):
+    """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
+    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
+        super().__init__(data_points_max = 1000000000)
+        self.lr = lr
+        self.pruning_proba = pruning_proba
+
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
+        """
+        SGD optimization
+        """
+        device = next(model.parameters()).device
+        pred = model(X)
+        los = loss_fn(pred, y)
+        # getting the gradient for all the layers
+        gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
+        for i, real_layer in enumerate(model.layers_reals): #[model.conv1, model.fc1]):
+            if real_layer is None:# no copy, so this layer is not binary
+                model.layers[i].weight.data -=  gg[2*i] * self.lr
+                model.layers[i].bias.data -=  gg[2*i+1] * self.lr
+            else:
+                # update the real copies of the weights
+                real_layer[0] -=  gg[2*i] * self.lr
+                real_layer[1] -=  gg[2*i+1] * self.lr
+                # update the binary version
+                model.layers[i].weight.data = torch.sign(real_layer[0])
+                model.layers[i].bias.data = torch.sign(real_layer[1])
+                # clip the real value of the weights
+                torch.clip(real_layer[0],-1,1, out=real_layer[0])
+                torch.clip(real_layer[1],-1,1, out=real_layer[1])
 
 class MCMCOptimizer(Optimizer):
     def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None, pruning_proba=0):
