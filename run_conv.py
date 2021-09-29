@@ -210,7 +210,7 @@ for t in range(epochs):
     result['test_accuracy'] = accuracy
     for i in range(9):
         proba = 0.1+i*0.1
-        loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba)
+        loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
         if i == 0:
             result['sparse test'] = [{'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }]
         else:
