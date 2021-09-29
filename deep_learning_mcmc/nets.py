@@ -374,10 +374,16 @@ def evaluate_sparse(dataloader, model, loss_fn, proba,boolean_flags,fc=True):
     else:
         model_sparse.fc1.weight.data = model.fc1.weight.data
         model_sparse.fc1.bias.data = model.fc1.bias.data
-    if fc and boolean_flags[1]!= 1:
-        kept = float((torch.sum(bin_mat1)+torch.sum(bin_mat2))/(float(torch.flatten(bin_mat1).shape[0])+float(torch.flatten(bin_mat2).shape[0])))
+    if fc and boolean_flags[1] != 1:
+        if boolean_flags[0] == 0:
+            kept = float((torch.sum(bin_mat1)+torch.sum(bin_mat2))/(float(torch.flatten(bin_mat1).shape[0])+float(torch.flatten(bin_mat2).shape[0])))
+        else:
+            kept = float(torch.sum(bin_mat2)/float(torch.flatten(bin_mat2).shape[0]))
     else:
-        kept = float(torch.sum(bin_mat1))/float(torch.flatten(bin_mat1).shape[0])
+        if boolean_flags[0] == 0:
+            kept = float(torch.sum(bin_mat1))/float(torch.flatten(bin_mat1).shape[0])
+        else:
+            kept = 0
     with torch.no_grad():
         for X, y in dataloader:
             X = X.to(device)
