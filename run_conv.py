@@ -12,6 +12,7 @@ import numpy as np, math
 from deep_learning_mcmc import nets, optimizers, stats, selector
 import argparse
 
+
 parser = argparse.ArgumentParser(description='Train a model on cifar10 with either mcmc or stochastic gradient based approach')
 parser.add_argument('--data_folder',
                     help='absolute path toward the data folder which contains the cifar10 dataset. Pytorch will download it if it does not exist',
