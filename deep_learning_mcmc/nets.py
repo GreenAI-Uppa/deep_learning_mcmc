@@ -328,7 +328,7 @@ def evaluate(dataloader, model, loss_fn):
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-    test_loss /= size
+    test_loss /= size/dataloader.batch_size
     correct /= size
     return test_loss, correct
 
