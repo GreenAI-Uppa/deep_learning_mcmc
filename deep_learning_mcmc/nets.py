@@ -329,11 +329,11 @@ def evaluate(dataloader, model, loss_fn):
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-    test_loss /= size
+    test_loss /= size/dataloader.batch_size
     correct /= size
     return test_loss, correct
 
-def evaluate_sparse(dataloader, model, loss_fn, proba,fc=True):
+def evaluate_sparse(dataloader, model, loss_fn, proba,boolean_flags,fc=True):
     """
     evaluate a sparse version of a linear model
     dataloader, model, and loss_fn : see evaluate function
@@ -346,17 +346,21 @@ def evaluate_sparse(dataloader, model, loss_fn, proba,fc=True):
     model_sparse = ConvNet(model.nb_filters,model.channels)
     model_sparse = model_sparse.to(device)
     #shrinkage of the convlayer
-    #weights
-    q1 = torch.quantile(torch.flatten(torch.abs(model.conv1.weight.data)),proba, dim=0)
-    bin_mat1 = torch.abs(model.conv1.weight.data) > q1
-    bin_mat1 = bin_mat1.to(device)
-    model_sparse.conv1.weight.data = (bin_mat1)*model.conv1.weight.data
-    #bias
-    q1bias = torch.quantile(torch.flatten(torch.abs(model.conv1.bias.data)),proba, dim=0)
-    bin_mat1bias = torch.abs(model.conv1.bias.data)> q1bias
-    bin_mat1bias = bin_mat1bias.to(device)
-    model_sparse.conv1.bias.data = (bin_mat1bias)*model.conv1.bias.data
-    if fc:
+    if boolean_flags[0] != 1:
+        #weights
+        q1 = torch.quantile(torch.flatten(torch.abs(model.conv1.weight.data)),proba, dim=0)
+        bin_mat1 = torch.abs(model.conv1.weight.data) > q1
+        bin_mat1 = bin_mat1.to(device)
+        model_sparse.conv1.weight.data = (bin_mat1)*model.conv1.weight.data
+        #bias
+        q1bias = torch.quantile(torch.flatten(torch.abs(model.conv1.bias.data)),proba, dim=0)
+        bin_mat1bias = torch.abs(model.conv1.bias.data)> q1bias
+        bin_mat1bias = bin_mat1bias.to(device)
+        model_sparse.conv1.bias.data = (bin_mat1bias)*model.conv1.bias.data
+    else:
+        model_sparse.conv1.weight.data = model.conv1.weight.data
+        model_sparse.conv1.bias.data = model.conv1.bias.data        
+    if fc and boolean_flags[1]!= 1:
         #shrinkage of fc layer
         #weights
         q2 = torch.quantile(torch.flatten(torch.abs(model.fc1.weight.data)),proba,dim=0)
@@ -371,10 +375,16 @@ def evaluate_sparse(dataloader, model, loss_fn, proba,fc=True):
     else:
         model_sparse.fc1.weight.data = model.fc1.weight.data
         model_sparse.fc1.bias.data = model.fc1.bias.data
-    if fc:
-        kept = float((torch.sum(bin_mat1)+torch.sum(bin_mat2))/(float(torch.flatten(bin_mat1).shape[0])+float(torch.flatten(bin_mat2).shape[0])))
+    if fc and boolean_flags[1] != 1:
+        if boolean_flags[0] == 0:
+            kept = float((torch.sum(bin_mat1)+torch.sum(bin_mat2))/(float(torch.flatten(bin_mat1).shape[0])+float(torch.flatten(bin_mat2).shape[0])))
+        else:
+            kept = float(torch.sum(bin_mat2)/float(torch.flatten(bin_mat2).shape[0]))
     else:
-        kept = float(torch.sum(bin_mat1))/float(torch.flatten(bin_mat1).shape[0])
+        if boolean_flags[0] == 0:
+            kept = float(torch.sum(bin_mat1))/float(torch.flatten(bin_mat1).shape[0])
+        else:
+            kept = 0
     with torch.no_grad():
         for X, y in dataloader:
             X = X.to(device)
