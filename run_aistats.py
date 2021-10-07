@@ -137,23 +137,21 @@ print('Using {} device'.format(device))
 epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
 
-if "variance_init" in params:
-    st_init = stats.Student(params['variance_init'])
-    if 'pruning_proba' in params["optimizer"]:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
-    else:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
-else:
-    if 'pruning_proba' in params["optimizer"]:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
-    else:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
-
-
 exp_name = params['exp_name']
 
 for k in range(10):
     print('Experience',k,'/ 9 is running')
+    if "variance_init" in params:
+        st_init = stats.Student(params['variance_init'])
+        if 'pruning_proba' in params["optimizer"]:
+            model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
+        else:
+            model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
+    else:
+        if 'pruning_proba' in params["optimizer"]:
+            model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
+        else:
+            model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
     results = {}
     if params['measure_power']:
         from deep_learning_power_measure.power_measure import experiment, parsers
