@@ -152,7 +152,7 @@ else:
 
 exp_name = params['exp_name']
 
-for k in range(3):
+for k in range(10):
     print('Experience',k,'/ 9 is running')
     results = {}
     if params['measure_power']:
