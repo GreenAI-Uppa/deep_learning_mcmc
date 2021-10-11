@@ -153,23 +153,12 @@ for k in range(10):
         else:
             model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
     results = {}
-    if params['measure_power']:
-        from deep_learning_power_measure.power_measure import experiment, parsers
-        input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
-        driver = parsers.JsonParser(os.path.join(os.getcwd(),'power_measure_'+exp_name+'_'+str(k)))
-        exp = experiment.Experiment(driver,model=model,input_size=input_image_size)
-        p, q = exp.measure_yourself(period=2)
     model = model.to(device)
     training_time = 0
     eval_time = 0
     start_all = time.time()
     previous_w_updated = 0
     for t in range(epochs):
-        if "pruning_proba" in params["optimizer"] and params["optimizer"]["pruning_proba"]>0:
-            bin_mat = torch.abs(model.conv1.weight.data) > 0
-            print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
-            bin_mat = torch.abs(model.fc1.weight.data) > 0
-            print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 1')
         start_epoch = time.time()
         print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
         if use_gradient:
@@ -225,11 +214,4 @@ for k in range(10):
         result['end_eval'] = datetime.datetime.now().__str__()
         results[t]=result
         json.dump(results, open(exp_name+'_'+str(k)+'.json','w'))
-    if params['measure_power']:
-        q.put(experiment.STOP_MESSAGE)
-        print("power measuring stopped")
-        driver = parsers.JsonParser("power_measure_"+exp_name+'_'+str(k))
-        exp_result = experiment.ExpResults(driver)
-        exp_result.print()
-
     print(exp_name+'_'+str(k)+'.json generated')
