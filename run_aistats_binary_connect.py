@@ -12,7 +12,6 @@ import numpy as np, math
 from deep_learning_mcmc import nets, optimizers, stats, selector
 import argparse
 
-
 parser = argparse.ArgumentParser(description='Train a model on cifar10 with either mcmc or stochastic gradient based approach')
 parser.add_argument('--data_folder',
                     help='absolute path toward the data folder which contains the cifar10 dataset. Pytorch will download it if it does not exist',
@@ -55,18 +54,7 @@ else:
         download=True,
         transform=ToTensor())
 
-'''
-args = parser.parse_args()
-training_data = datasets.CIFAR10(root=args.data_folder,
-    train=True,
-    download=True,
-    transform=ToTensor())
 
-test_data = datasets.CIFAR10(root=args.data_folder,
-    train=False,
-    download=True,
-    transform=ToTensor())
-'''
 examples = enumerate(training_data)
 batch_idx, (ex_train_data, example_targets) = next(examples)
 examples = enumerate(test_data)
@@ -85,6 +73,7 @@ batch_size = params['batch_size']
 # getting the data
 train_dataloader = DataLoader(training_data, batch_size=batch_size, num_workers=16)
 test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=16)
+
 # setting the model
 
 
@@ -107,11 +96,12 @@ else:
 
 
 
-use_gradient = params['optimizer']["name"] == 'grad'
+use_gradient = params['optimizer']["name"] == 'grad' or params['optimizer']["name"] == 'binaryConnect'
+
 # setting the optimizer
 if params["optimizer"]["name"] == "grad":
     if 'pruning_proba' in params["optimizer"]:
-        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'],pruning_proba=params["optimizer"]['pruning_proba'])
+        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'], pruning_proba=params["optimizer"]['pruning_proba'])
     else:
         optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
 elif params["optimizer"]["name"] == "binaryConnect":
@@ -137,28 +127,23 @@ print('Using {} device'.format(device))
 epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
 
-exp_name = params['exp_name']
 
-for k in range(10):
-    print('Experience',k,'/ 9 is running')
-    if "variance_init" in params:
-        st_init = stats.Student(params['variance_init'])
-        if 'pruning_proba' in params["optimizer"]:
-            model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
-        else:
-            model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
-    else:
-        if 'pruning_proba' in params["optimizer"]:
-            model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
-        else:
-            model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
+for k in range(3):
+    print('Experience',k,'/ 9 is running')    
     results = {}
+    model = nets.BinaryConnectConv(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
+    exp_name = params['exp_name']
     model = model.to(device)
     training_time = 0
     eval_time = 0
     start_all = time.time()
     previous_w_updated = 0
     for t in range(epochs):
+        if "pruning_proba" in params["optimizer"] and params["optimizer"]["pruning_proba"]>0:
+            bin_mat = torch.abs(model.conv1.weight.data) > 0
+            print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
+            bin_mat = torch.abs(model.fc1.weight.data) > 0
+            print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 1')
         start_epoch = time.time()
         print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
         if use_gradient:
@@ -207,11 +192,12 @@ for k in range(10):
             proba = 0.91+i*0.01
             loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
             result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
-        if int(math.log(t+1,10)) == math.log(t+1,10) and k==0:
+        if int(math.log(t+1,10)) == math.log(t+1,10):
             torch.save(model, exp_name+str(t+1)+'.th')
         result['eval_time'] = time.time() - end_epoch
         eval_time += time.time() - end_epoch
         result['end_eval'] = datetime.datetime.now().__str__()
         results[t]=result
-        json.dump(results, open(exp_name+'_'+str(k)+'.json','w'))
-    print(exp_name+'_'+str(k)+'.json generated')
+        json.dump(results, open(exp_name+'.json','w'))
+    print(exp_name+'.json generated')
+    print('Report is written at '+str(exp_name)+'.csv')
