@@ -128,7 +128,7 @@ epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
 
 
-for k in range(3):
+for k in range(10):
     print('Experience',k,'/ 9 is running')    
     results = {}
     model = nets.BinaryConnectConv(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
@@ -198,6 +198,5 @@ for k in range(3):
         eval_time += time.time() - end_epoch
         result['end_eval'] = datetime.datetime.now().__str__()
         results[t]=result
-        json.dump(results, open(exp_name+'.json','w'))
-    print(exp_name+'.json generated')
-    print('Report is written at '+str(exp_name)+'.csv')
+        json.dump(results, open(exp_name+'_'+str(k)+'.json','w'))
+    print(exp_name+'_'+str(t)+'.json generated')
