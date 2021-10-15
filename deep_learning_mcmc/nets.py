@@ -225,6 +225,14 @@ class BinaryConnectConv(ConvNet):
              else:
                  self.layers_reals.append(None)
 
+    def to(self, device):
+        model =super().to(device)
+        for layer_real in model.layers_reals:
+            if layer_real is not None:
+                layer_real[0] = layer_real[0].to(device)
+                layer_real[1] = layer_real[1].to(device)
+        return model
+
 
 class AlexNet(nn.Module):
     '''
