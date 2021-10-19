@@ -126,91 +126,77 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
-results = {}
 
-model = nets.BinaryConnectConv(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
 
-exp_name = params['exp_name']
-
-if params['measure_power']:
-    from deep_learning_power_measure.power_measure import experiment, parsers
-    input_image_size = (batch_size, training_data.data.shape[3], training_data.data.shape[1], training_data.data.shape[2])
-    driver = parsers.JsonParser(os.path.join(os.getcwd(),'power_measure'))
-    exp = experiment.Experiment(driver,model=model,input_size=input_image_size)
-    p, q = exp.measure_yourself(period=2)
-model = model.to(device)
-training_time = 0
-eval_time = 0
-start_all = time.time()
-previous_w_updated = 0
-for t in range(epochs):
-    if "pruning_proba" in params["optimizer"] and params["optimizer"]["pruning_proba"]>0:
-        bin_mat = torch.abs(model.conv1.weight.data) > 0
-        print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
-        bin_mat = torch.abs(model.fc1.weight.data) > 0
-        print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 1')
-    start_epoch = time.time()
-    print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
-    if use_gradient:
-        optimizer.train_1_epoch(train_dataloader, model, loss_fn)
-    else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=params['verbose'])
-    result = {"epoch":t}
-    end_epoch = time.time()
-    training_time += time.time() - start_epoch
-    result['training_time'] = time.time() - start_epoch
-    result['end_training_epoch'] = datetime.datetime.now().__str__()
-    loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
-    if use_gradient:
-        result['iterations'] = (t+1)*int(50000/batch_size)
-        result['passforwards'] = (t+1)*50000
-        result['backwards'] = (t+1)*50000
-        result['weights_updated'] = (t+1)*int(50000/batch_size)*64266
-        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
-    else:
-        result['iterations'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
-        result['passforwards'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
-        result['backwards'] = 0
-        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
-        print("Acceptance ratio",acceptance_ratio)
-    if not use_gradient:
-        result['accept_ratio'] = acceptance_ratio.to_dict()
-        acc_0 = acceptance_ratio.to_dict()["layer_0"]
-        acc_1 = acceptance_ratio.to_dict()["layer_1"]
-        if 'get_idx_param' in params['optimizer']['selector']['layer_conf'][1]:
-            result['weights_updated'] = previous_w_updated + int(50000/batch_size)*params["optimizer"]["iter_mcmc"]*(0.5*363+0.5*layer_conf['get_idx_param'])
-            previous_w_updated = result['weights_updated']
-    result['train_loss'] = loss
-    result['train_accuracy'] = accuracy
-    loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
-    print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
-    result['test_loss'] = loss
-    result['test_accuracy'] = accuracy
-    for i in range(9):
-        proba = 0.1+i*0.1
-        loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
-        if i == 0:
-            result['sparse test'] = [{'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }]
+for k in range(10):
+    print('Experience',k,'/ 9 is running')    
+    results = {}
+    model = nets.BinaryConnectConv(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
+    exp_name = params['exp_name']
+    model = model.to(device)
+    training_time = 0
+    eval_time = 0
+    start_all = time.time()
+    previous_w_updated = 0
+    for t in range(epochs):
+        if "pruning_proba" in params["optimizer"] and params["optimizer"]["pruning_proba"]>0:
+            bin_mat = torch.abs(model.conv1.weight.data) > 0
+            print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
+            bin_mat = torch.abs(model.fc1.weight.data) > 0
+            print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 1')
+        start_epoch = time.time()
+        print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
+        if use_gradient:
+            optimizer.train_1_epoch(train_dataloader, model, loss_fn)
         else:
+            acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=params['verbose'])
+        result = {"epoch":t}
+        end_epoch = time.time()
+        training_time += time.time() - start_epoch
+        result['training_time'] = time.time() - start_epoch
+        result['end_training_epoch'] = datetime.datetime.now().__str__()
+        loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
+        if use_gradient:
+            result['iterations'] = (t+1)*int(50000/batch_size)
+            result['passforwards'] = (t+1)*50000
+            result['backwards'] = (t+1)*50000
+            result['weights_updated'] = (t+1)*int(50000/batch_size)*64266
+            print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+        else:
+            result['iterations'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
+            result['passforwards'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
+            result['backwards'] = 0
+            print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
+            print("Acceptance ratio",acceptance_ratio)
+        if not use_gradient:
+            result['accept_ratio'] = acceptance_ratio.to_dict()
+            acc_0 = acceptance_ratio.to_dict()["layer_0"]
+            acc_1 = acceptance_ratio.to_dict()["layer_1"]
+            if 'get_idx_param' in params['optimizer']['selector']['layer_conf'][1]:
+                result['weights_updated'] = previous_w_updated + int(50000/batch_size)*params["optimizer"]["iter_mcmc"]*(0.5*363+0.5*layer_conf['get_idx_param'])
+                previous_w_updated = result['weights_updated']
+        result['train_loss'] = loss
+        result['train_accuracy'] = accuracy
+        loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
+        print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
+        result['test_loss'] = loss
+        result['test_accuracy'] = accuracy
+        for i in range(9):
+            proba = 0.1+i*0.1
+            loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
+            if i == 0:
+                result['sparse test'] = [{'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }]
+            else:
+                result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
+        for i in range(9):
+            proba = 0.91+i*0.01
+            loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
             result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
-    for i in range(9):
-        proba = 0.91+i*0.01
-        loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
-        result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
-    if int(math.log(t+1,10)) == math.log(t+1,10):
-        torch.save(model, exp_name+str(t+1)+'.th')
-    result['eval_time'] = time.time() - end_epoch
-    eval_time += time.time() - end_epoch
-    result['end_eval'] = datetime.datetime.now().__str__()
-    results[t]=result
-    json.dump(results, open(exp_name+'.json','w'))
-if params['measure_power']:
-    q.put(experiment.STOP_MESSAGE)
-    print("power measuring stopped")
-    driver = parsers.JsonParser("power_measure")
-    exp_result = experiment.ExpResults(driver)
-    exp_result.print()
-
-print(exp_name+'.json generated')
-
-print('Report is written at '+str(exp_name)+'.csv')
+        if int(math.log(t+1,10)) == math.log(t+1,10):
+            torch.save(model, exp_name+str(t+1)+'.th')
+        result['eval_time'] = time.time() - end_epoch
+        eval_time += time.time() - end_epoch
+        result['end_eval'] = datetime.datetime.now().__str__()
+        results[t]=result
+        json.dump(results, open(exp_name+'_'+str(k)+'.json','w'))
+    print(exp_name+'_'+str(t)+'.json generated')
