@@ -132,6 +132,7 @@ class MLP(nn.Module):
             else:
                 activation = getattr(nn, activations[i])()
             self.activations.append(activation)
+        activations[-1] = None # because the loss function contains its own activation
 
     def forward(self, x):
         x = self.flatten(x)
@@ -223,6 +224,14 @@ class BinaryConnectConv(ConvNet):
                  layer.bias.data = np.sign(layer.bias.data)
              else:
                  self.layers_reals.append(None)
+
+    def to(self, device):
+        model =super().to(device)
+        for layer_real in model.layers_reals:
+            if layer_real is not None:
+                layer_real[0] = layer_real[0].to(device)
+                layer_real[1] = layer_real[1].to(device)
+        return model
 
 
 class AlexNet(nn.Module):
