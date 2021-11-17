@@ -31,42 +31,13 @@ class Optimizer(ABC):
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """abtract method to train a batch of data"""
 
+
 class GradientOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
     def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
         self.pruning_proba = pruning_proba
-        #self.current_batch = 0
-
-
-    def train_1_epoch(self, dataloader, model, loss_fn):
-        """train the data for 1 epoch"""
-        num_items_read = 0
-        # attempting to guess the device on the model.
-        device = next(model.parameters()).device
-        for i, (X, y) in enumerate(dataloader):
-            """
-            if i <= self.current_batch:
-                continue
-            if self.current_batch + 1 < i:
-                break
-            print("passing")
-            """
-            if self.data_points_max <= num_items_read:
-                break
-            X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
-            y = y[:min(self.data_points_max - num_items_read, X.shape[0])]
-            num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
-            X = X.to(device)
-            y = y.to(device)
-            self.train_1_batch(X, y, model, loss_fn)
-        """
-        if len(dataloader) - 1 <= i:
-            i = 0
-        self.current_batch = i
-        print("current batch:", self.current_batch, i, len(dataloader))
-        """
 
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
@@ -76,7 +47,7 @@ class GradientOptimizer(Optimizer):
         pred = model(X)
         los = loss_fn(pred, y)
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
-        for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
+        for i, layer in enumerate(model.layers):
             layer.weight.data -=  gg[2*i] * self.lr
             if self.pruning_proba>0 and len(model.layers)<3:#quantile do not scale with alexnet
                 q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
@@ -86,13 +57,39 @@ class GradientOptimizer(Optimizer):
             layer.bias.data -=  gg[2*i+1] * self.lr
 
 
+class LayerWiseOptimizer(GradientOptimizer):
+    def train_1_epoch(self, dataloader, model, loss_fn):
+        """train the data for 1 epoch"""
+        buffers = dict([ (i,{ 'data': [], 'counters': 0 }) for i in range(len(model))])
+        X, y = next(iter(dataloader))
+        buffers[1]['data'].append((X,y))
+        device = next(model[0].parameters()).device
+        while True:
+            # select l
+            if l != -1:
+                X, y = read_buffer(buffers[l])
+                X = X.to(device)
+                y = y.to(device)
+                self.train_1_batch(X, y, model[j], loss_fn)
+            else:
+                X, y = next(iter(dataloader))
+            write_buffer(buffers[l+1], (X,y))
+
+    def write_buffer(b, x):
+        pass
+
+    def read_buffer(b):
+        cmax = min(b['counters'])
+        idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmax ])
+        b['counters'][idx] += 1
+        return b['data'][idx]
+
 class BinaryConnectOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
     def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
         self.pruning_proba = pruning_proba
-        #self.current_batch = 0
 
     def train_1_epoch(self, dataloader, model, loss_fn):
         """train the data for 1 epoch"""
@@ -100,13 +97,6 @@ class BinaryConnectOptimizer(Optimizer):
         # attempting to guess the device on the model.
         device = next(model.parameters()).device
         for i, (X, y) in enumerate(dataloader):
-            """
-            if i <= self.current_batch:
-                continue
-            if self.current_batch + 1 < i:
-                break
-            print("passing")
-            """
             if self.data_points_max <= num_items_read:
                 break
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
@@ -115,12 +105,6 @@ class BinaryConnectOptimizer(Optimizer):
             X = X.to(device)
             y = y.to(device)
             self.train_1_batch(X, y, model, loss_fn)
-        """
-        if len(dataloader) - 1 <= i:
-            i = 0
-        self.current_batch = i
-        print("current batch:", self.current_batch, i, len(dataloader))
-        """
 
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
