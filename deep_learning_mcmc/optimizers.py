@@ -56,33 +56,83 @@ class GradientOptimizer(Optimizer):
                 layer.weight.data = (bin_mat)*layer.weight.data
             layer.bias.data -=  gg[2*i+1] * self.lr
 
-
 class LayerWiseOptimizer(GradientOptimizer):
+    """Layer wise training with gradient optimizer"""
+    def __init__(self, buffer_max_size=10, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
+        super().__init__(data_points_max = data_points_max, lr=lr, pruning_proba=pruning_proba)
+        self.buffer_max_size = buffer_max_size
+
+    def scheduler(self, L, n):
+      for n in range(n):
+          for l in range(-1, L):
+              yield l
+
     def train_1_epoch(self, dataloader, model, loss_fn):
         """train the data for 1 epoch"""
-        buffers = dict([ (i,{ 'data': [], 'counters': 0 }) for i in range(len(model))])
+        buffers = dict([ (i,{ 'data': [], 'counters': [0] }) for i in range(len(model))])
         X, y = next(iter(dataloader))
-        buffers[1]['data'].append((X,y))
+        #buffers[1]['data'].append((X,y))
         device = next(model[0].parameters()).device
-        while True:
-            # select l
+        schedule = self.scheduler(len(model), len(dataloader))
+        for i, l in enumerate(schedule):
+            if i%100==0:
+                print(i,'iterations')
             if l != -1:
-                X, y = read_buffer(buffers[l])
+                X, y = self.read_buffer(buffers[l])
                 X = X.to(device)
                 y = y.to(device)
-                self.train_1_batch(X, y, model[j], loss_fn)
+                X = self.train_1_batch(X, y, model[l], loss_fn)
             else:
                 X, y = next(iter(dataloader))
-            write_buffer(buffers[l+1], (X,y))
+            if l<len(model)-1:
+                self.write_buffer(buffers[l+1], (X,y))
 
-    def write_buffer(b, x):
-        pass
 
-    def read_buffer(b):
-        cmax = min(b['counters'])
-        idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmax ])
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
+        """
+        SGD optimization, and returns the output of the conv layer
+        """
+        device = next(model.parameters()).device
+        X, pred = model(X)
+        los = loss_fn(pred, y)
+        gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
+        for i, layer in enumerate(model.layers):
+            layer.weight.data -=  gg[2*i] * self.lr
+            if self.pruning_proba>0 and len(model.layers)<3: #quantile do not scale with alexnet
+                q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
+                bin_mat = torch.abs(layer.weight.data) > q1
+                bin_mat = bin_mat.to(device)
+                layer.weight.data = (bin_mat)*layer.weight.data
+            layer.bias.data -=  gg[2*i+1] * self.lr
+        return X
+
+    def write_buffer(self, b, x):
+        """
+        write data to the buffer
+        Just append the data if the buffer is not full
+        otherwise, replace the most used point
+        if there are several of them, remove with a first in first out scheme
+        """
+        if len(b['data']) < self.buffer_max_size:
+            b['data'].append(x)
+            b['counters'].append(0)
+        else:
+            cmax = max(b['counters'])
+            idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmax ])
+            b['counters'][idx] = 0
+            b['data'][idx] = x
+
+    def read_buffer(self, b):
+        """
+        get the least used buffer
+        if there are several of them, take the one with the closest index,
+        which corresponds to the first in first out scheme
+        """
+        cmin = min(b['counters'])
+        idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmin ])
         b['counters'][idx] += 1
         return b['data'][idx]
+
 
 class BinaryConnectOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
