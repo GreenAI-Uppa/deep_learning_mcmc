@@ -111,8 +111,8 @@ else:
 use_gradient = params['optimizer']["name"] == 'grad'
 # setting the optimizer
 if params["optimizer"]["name"] == "grad":
-    if 'pruning_proba' in params["optimizer"]:
-        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'],pruning_proba=params["optimizer"]['pruning_proba'])
+    if 'pruning_level' in params["optimizer"]:
+        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'],pruning_level=params["optimizer"]['pruning_level'])
     else:
         optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
 elif params["optimizer"]["name"] == "binaryConnect":
@@ -128,8 +128,8 @@ else:
         config['layer_conf'].append({'layer_distr': layer_distr, 'get_idx': get_idx})
     selector =  selector.build_selector(config)
     samplers = stats.build_samplers(params["optimizer"]["samplers"])
-    if 'pruning_proba' in params["optimizer"]:
-        optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector,pruning_proba=params["optimizer"]['pruning_proba'])
+    if 'pruning_level' in params["optimizer"]:
+        optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector,pruning_level=params["optimizer"]['pruning_level'])
     else:
         optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector)
 
@@ -141,13 +141,13 @@ results = {}
 
 if "variance_init" in params:
     st_init = stats.Student(params['variance_init'])
-    if 'pruning_proba' in params["optimizer"]:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_proba = params["optimizer"]['pruning_proba'])
+    if 'pruning_level' in params["optimizer"]:
+        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_level = params["optimizer"]['pruning_level'])
     else:
         model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
 else:
-    if 'pruning_proba' in params["optimizer"]:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_proba = params["optimizer"]['pruning_proba'])
+    if 'pruning_level' in params["optimizer"]:
+        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_level = params["optimizer"]['pruning_level'])
     else:
         model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
 
@@ -166,7 +166,7 @@ eval_time = 0
 start_all = time.time()
 previous_w_updated = 0
 for t in range(epochs):
-    if "pruning_proba" in params["optimizer"] and params["optimizer"]["pruning_proba"]>0:
+    if "pruning_level" in params["optimizer"] and params["optimizer"]["pruning_level"]>0:
         bin_mat = torch.abs(model.conv1.weight.data) > 0
         print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
         bin_mat = torch.abs(model.fc1.weight.data) > 0
