@@ -5,6 +5,9 @@ from abc import ABC, abstractmethod
 import torch
 import numpy as np
 from deep_learning_mcmc import nets
+from torchvision import datasets
+from torch.utils.data import DataLoader
+from torchvision.transforms import ToTensor
 import copy
 
 class Optimizer(ABC):
@@ -63,10 +66,10 @@ class GradientOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            self.train_1_batch(X, y, model, dataloader, loss_fn)
+            self.train_1_batch(X, y, model, loss_fn)
             if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 gradient step
                 print('skeletonization iteration')
-                model = skeletonization(model,self.pruning_level,dataloader,loss_fn)
+                model = skeletonization(model,self.pruning_level,loss_fn)
                 print(model)
         """
         if len(dataloader) - 1 <= i:
@@ -75,7 +78,7 @@ class GradientOptimizer(Optimizer):
         print("current batch:", self.current_batch, i, len(dataloader))
         """
 
-    def train_1_batch(self, X, y, model, dataloader,loss_fn=torch.nn.CrossEntropyLoss()):
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
         SGD optimization
         """
@@ -98,12 +101,17 @@ def forward_alpha(model,alpha, x):
         x = model.fc1(x)
         return x
 
-def relevance(model,dataloader,loss_fn):
+def relevance(model,loss_fn):
     autograd_tensor = torch.ones((model.nb_filters * 8 * 8), requires_grad=True)
     num_items_read = 0
     device = next(model.parameters()).device
     autograd_tensor = autograd_tensor.to(device)
     gg = []
+    test_data = datasets.CIFAR10(root='../../data',
+        train=False,
+        download=True,
+        transform=ToTensor())
+    dataloader = DataLoader(test_data, batch_size=256, num_workers=16)
     #print(device,'used for training')
     for _, (X, y) in enumerate(dataloader):
         if 1000000 <= num_items_read:
@@ -120,8 +128,8 @@ def relevance(model,dataloader,loss_fn):
     result = torch.mean(tensor_gg,0)
     return(-result)
 
-def skeletonization(model,pruning_level,dataloader,loss_fn):
-    relevance_ = relevance(model,dataloader,loss_fn)
+def skeletonization(model,pruning_level,loss_fn):
+    relevance_ = relevance(model,loss_fn)
     size = int(model.fc1.weight.data.shape[1]*(1-pruning_level))
     keep_indices = torch.argsort(-relevance_)[:size]
     device = next(model.parameters()).device
