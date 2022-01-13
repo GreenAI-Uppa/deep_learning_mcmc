@@ -166,11 +166,12 @@ eval_time = 0
 start_all = time.time()
 previous_w_updated = 0
 for t in range(epochs):
-    if "pruning_level" in params["optimizer"] and params["optimizer"]["pruning_level"]>0:
+    '''if "pruning_level" in params["optimizer"] and params["optimizer"]["pruning_level"]>0:
         bin_mat = torch.abs(model.conv1.weight.data) > 0
         print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 0')
         bin_mat = torch.abs(model.fc1.weight.data) > 0
         print(int(torch.sum(bin_mat)),'/',torch.flatten(bin_mat).shape[0],'kept values for layer 1')
+    '''
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
     if use_gradient:
