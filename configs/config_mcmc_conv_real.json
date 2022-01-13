@@ -1,7 +1,7 @@
 {
         "batch_size": 50000,
-        "epochs": 100,
-        "exp_name": "aistats_mcmc",
+        "epochs": 10,
+        "exp_name": "mozer",
         "architecture": {
                 "boolean_flags": [0, 0],
                 "activations" : ["ReLU", "Softmax"],
@@ -10,7 +10,7 @@
         "variance_init": 0.00000001,
         "optimizer": {
                 "name": "mcmc",
-                "pruning_proba":0,
+                "pruning_level":0,
                 "selector" : {
                     "name": "Selector",
                     "layer_conf" : [
