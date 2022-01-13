@@ -67,6 +67,7 @@ class GradientOptimizer(Optimizer):
             if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 gradient step
                 print('skeletonization iteration')
                 model = skeletonization(model,self.pruning_level,dataloader,loss_fn)
+                print(model)
         """
         if len(dataloader) - 1 <= i:
             i = 0
@@ -123,7 +124,8 @@ def skeletonization(model,pruning_level,dataloader,loss_fn):
     relevance_ = relevance(model,dataloader,loss_fn)
     size = int(model.fc1.weight.data.shape[1]*(1-pruning_level))
     keep_indices = torch.argsort(-relevance_)[:size]
-    skeletone = nets.ConvNet(model.nb_filters,model.channels)
+    device = next(model.parameters()).device
+    skeletone = nets.ConvNet(model.nb_filters,model.channels).to(device)
     skeletone.conv1.weight.data = copy.deepcopy(model.conv1.weight.data)
     skeletone.fc1.weight.data = copy.deepcopy(model.fc1.weight.data)
     for index in set(range(4096))-set(keep_indices):
