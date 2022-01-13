@@ -107,7 +107,7 @@ def relevance(model,loss_fn):
     device = next(model.parameters()).device
     autograd_tensor = autograd_tensor.to(device)
     gg = []
-    test_data = datasets.CIFAR10(root='../../data',
+    test_data = datasets.CIFAR10(root='../data',
         train=False,
         download=True,
         transform=ToTensor())
@@ -281,7 +281,7 @@ class MCMCOptimizer(Optimizer):
             #to prune or not to prune
             if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 mcmc iterations
                 print('skeletonization iteration')
-                model = model = skeletonization(model,self.pruning_level,dataloader,loss_fn)
+                model = skeletonization(model,self.pruning_level,loss_fn)
             pred = model(X)
             loss_prop = loss_fn(pred, y)
             # computing the change in the loss
