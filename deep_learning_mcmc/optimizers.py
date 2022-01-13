@@ -33,10 +33,10 @@ class Optimizer(ABC):
 
 class GradientOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
-    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
+    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_level=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
-        self.pruning_proba = pruning_proba
+        self.pruning_level = pruning_level
         #self.current_batch = 0
 
 
@@ -78,20 +78,65 @@ class GradientOptimizer(Optimizer):
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
         for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
             layer.weight.data -=  gg[2*i] * self.lr
-            if self.pruning_proba>0 and len(model.layers)<3:#quantile do not scale with alexnet
-                q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
-                bin_mat = torch.abs(layer.weight.data) > q1
-                bin_mat = bin_mat.to(device)
-                layer.weight.data = (bin_mat)*layer.weight.data
             layer.bias.data -=  gg[2*i+1] * self.lr
+            if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 gradient step
+                print('skeletonization iteration')
+                model = skeletonization(model,self.pruning_level,test_dataloader)
+
+#######################
+#Mozer pruning function
+#######################
+def forward_alpha(model,alpha, x):
+        x = model.activations[0](model.conv1(x))
+        x = x.view(-1, model.nb_filters * 8 * 8)
+        x = [torch.mul(elt,alpha) for elt in x]
+        x = torch.stack(x)
+        x = model.fc1(x)
+        return x
+
+def relevance(model,test_dataloader,loss_fn):
+    autograd_tensor = torch.ones((model.nb_filters * 8 * 8), requires_grad=True)
+    num_items_read = 0
+    device = next(model.parameters()).device
+    gg = []
+    #print(device,'used for training')
+    for _, (X, y) in enumerate(test_dataloader):
+        if 1000000 <= num_items_read:
+            break
+        X = X[:min(1000000 - num_items_read, X.shape[0])]
+        y = y[:min(1000000 - num_items_read, X.shape[0])]
+        num_items_read = min(1000000, num_items_read + X.shape[0])
+        X = X.to(device)
+        y = y.to(device)
+        pred = forward_alpha(model,autograd_tensor,X)
+        loss = loss_fn(pred, y)
+        gg.append(torch.autograd.grad(loss, autograd_tensor, retain_graph=True))
+    tensor_gg = np.array([list(gg[k][0]) for k in range(len(test_dataloader))])
+    result = np.mean(tensor_gg,0)
+    return(-result)
+
+def skeletonization(model,pruning_level,dataloader):
+    relevance_ = relevance(model,dataloader)
+    size = int(model.fc1.weight.data.shape[1]*(1-pruning_level))
+    keep_indices = np.argsort(-np.array(relevance_))[:size]
+    skeletone = ConvNet(model.nb_filters,model.channels)
+    skeletone.conv1.weight.data = copy.deepcopy(model.conv1.weight.data)
+    skeletone.fc1.weight.data = copy.deepcopy(model.fc1.weight.data)
+    for index in set(range(4096))-set(keep_indices):
+        skeletone.fc1.weight.data[:,index] = torch.zeros(10)
+    return(skeletone)
+
+#######################
+#End of Mozer pruning function
+#######################
 
 
 class BinaryConnectOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
-    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
+    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_level=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
-        self.pruning_proba = pruning_proba
+        self.pruning_level = pruning_level
         #self.current_batch = 0
 
     def train_1_epoch(self, dataloader, model, loss_fn):
@@ -149,7 +194,7 @@ class BinaryConnectOptimizer(Optimizer):
 
 
 class MCMCOptimizer(Optimizer):
-    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None, pruning_proba=0):
+    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None, pruning_level=0):
         """
         variance_prop : zero centered univariate student law class to generate the proposals
         variance_prior : zero centered univariate student law class used as a prior on the parameter values
@@ -160,7 +205,7 @@ class MCMCOptimizer(Optimizer):
         self.iter_mcmc = iter_mcmc
         self.lamb = lamb
         self.sampler = sampler
-        self.pruning_proba = pruning_proba
+        self.pruning_level = pruning_level
         if prior is None:
             self.prior = self.sampler
         else:
@@ -220,15 +265,11 @@ class MCMCOptimizer(Optimizer):
             # applying the changes to get the new value of the loss
             self.selector.update(model, neighborhood, epsilon)
             #to prune or not to prune
-            if self.pruning_proba>0 and len(model.layers)<3:#quantile do not scale with alexnet
-                for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
-                    q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
-                    bin_mat = torch.abs(layer.weight.data) > q1
-                    bin_mat = bin_mat.to(device)
-                    layer.weight.data = (bin_mat)*layer.weight.data
+            if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 mcmc iterations
+                print('skeletonization iteration')
+                model = skeletonization(model,self.pruning_level,test_dataloader)
             pred = model(X)
             loss_prop = loss_fn(pred, y)
-
             # computing the change in the loss
             lamb = self.sampler.get_lambda(self.selector.neighborhood_info)
             data_term = torch.exp(lamb * (loss -loss_prop))
