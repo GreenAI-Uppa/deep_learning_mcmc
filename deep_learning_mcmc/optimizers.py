@@ -64,6 +64,9 @@ class GradientOptimizer(Optimizer):
             X = X.to(device)
             y = y.to(device)
             self.train_1_batch(X, y, model, dataloader, loss_fn)
+            if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 gradient step
+                print('skeletonization iteration')
+                model = skeletonization(model,self.pruning_level,dataloader,loss_fn)
         """
         if len(dataloader) - 1 <= i:
             i = 0
@@ -82,9 +85,6 @@ class GradientOptimizer(Optimizer):
         for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
             layer.weight.data -=  gg[2*i] * self.lr
             layer.bias.data -=  gg[2*i+1] * self.lr
-            if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 gradient step
-                print('skeletonization iteration')
-                model = skeletonization(model,self.pruning_level,dataloader,loss_fn)
 
 #######################
 #Mozer pruning function
@@ -115,14 +115,14 @@ def relevance(model,dataloader,loss_fn):
         pred = forward_alpha(model,autograd_tensor,X)
         loss = loss_fn(pred, y)
         gg.append(torch.autograd.grad(loss, autograd_tensor, retain_graph=True))
-    tensor_gg = np.array([list(gg[k][0]) for k in range(len(dataloader))])
-    result = np.mean(tensor_gg,0)
+    tensor_gg = torch.tensor([list(gg[k][0]) for k in range(len(dataloader))]).to(device)
+    result = torch.mean(tensor_gg,0)
     return(-result)
 
 def skeletonization(model,pruning_level,dataloader,loss_fn):
     relevance_ = relevance(model,dataloader,loss_fn)
     size = int(model.fc1.weight.data.shape[1]*(1-pruning_level))
-    keep_indices = np.argsort(-np.array(relevance_))[:size]
+    keep_indices = torch.argsort(-relevance_)[:size]
     skeletone = nets.ConvNet(model.nb_filters,model.channels)
     skeletone.conv1.weight.data = copy.deepcopy(model.conv1.weight.data)
     skeletone.fc1.weight.data = copy.deepcopy(model.fc1.weight.data)
