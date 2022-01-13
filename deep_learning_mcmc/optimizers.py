@@ -3,6 +3,9 @@ to train the network"""
 import collections
 from abc import ABC, abstractmethod
 import torch
+import numpy as np
+from deep_learning_mcmc import nets
+import copy
 
 class Optimizer(ABC):
     """Generic optimizer interface"""
@@ -60,7 +63,7 @@ class GradientOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            self.train_1_batch(X, y, model, loss_fn)
+            self.train_1_batch(X, y, model, dataloader, loss_fn)
         """
         if len(dataloader) - 1 <= i:
             i = 0
@@ -68,7 +71,7 @@ class GradientOptimizer(Optimizer):
         print("current batch:", self.current_batch, i, len(dataloader))
         """
 
-    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
+    def train_1_batch(self, X, y, model, dataloader,loss_fn=torch.nn.CrossEntropyLoss()):
         """
         SGD optimization
         """
@@ -81,7 +84,7 @@ class GradientOptimizer(Optimizer):
             layer.bias.data -=  gg[2*i+1] * self.lr
             if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 gradient step
                 print('skeletonization iteration')
-                model = skeletonization(model,self.pruning_level,test_dataloader)
+                model = skeletonization(model,self.pruning_level,dataloader,loss_fn)
 
 #######################
 #Mozer pruning function
@@ -94,13 +97,14 @@ def forward_alpha(model,alpha, x):
         x = model.fc1(x)
         return x
 
-def relevance(model,test_dataloader,loss_fn):
+def relevance(model,dataloader,loss_fn):
     autograd_tensor = torch.ones((model.nb_filters * 8 * 8), requires_grad=True)
     num_items_read = 0
     device = next(model.parameters()).device
+    autograd_tensor = autograd_tensor.to(device)
     gg = []
     #print(device,'used for training')
-    for _, (X, y) in enumerate(test_dataloader):
+    for _, (X, y) in enumerate(dataloader):
         if 1000000 <= num_items_read:
             break
         X = X[:min(1000000 - num_items_read, X.shape[0])]
@@ -111,15 +115,15 @@ def relevance(model,test_dataloader,loss_fn):
         pred = forward_alpha(model,autograd_tensor,X)
         loss = loss_fn(pred, y)
         gg.append(torch.autograd.grad(loss, autograd_tensor, retain_graph=True))
-    tensor_gg = np.array([list(gg[k][0]) for k in range(len(test_dataloader))])
+    tensor_gg = np.array([list(gg[k][0]) for k in range(len(dataloader))])
     result = np.mean(tensor_gg,0)
     return(-result)
 
-def skeletonization(model,pruning_level,dataloader):
-    relevance_ = relevance(model,dataloader)
+def skeletonization(model,pruning_level,dataloader,loss_fn):
+    relevance_ = relevance(model,dataloader,loss_fn)
     size = int(model.fc1.weight.data.shape[1]*(1-pruning_level))
     keep_indices = np.argsort(-np.array(relevance_))[:size]
-    skeletone = ConvNet(model.nb_filters,model.channels)
+    skeletone = nets.ConvNet(model.nb_filters,model.channels)
     skeletone.conv1.weight.data = copy.deepcopy(model.conv1.weight.data)
     skeletone.fc1.weight.data = copy.deepcopy(model.fc1.weight.data)
     for index in set(range(4096))-set(keep_indices):
@@ -227,10 +231,10 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptance_ratio += self.train_1_batch(X, y, model, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose)
+            acceptance_ratio += self.train_1_batch(X, y, model, dataloader, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose)
         return acceptance_ratio
 
-    def train_1_batch(self, X, y, model, loss_fn, verbose=False):
+    def train_1_batch(self, X, y, model, dataloader, loss_fn, verbose=False):
         """
         perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
 
@@ -267,7 +271,7 @@ class MCMCOptimizer(Optimizer):
             #to prune or not to prune
             if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 mcmc iterations
                 print('skeletonization iteration')
-                model = skeletonization(model,self.pruning_level,test_dataloader)
+                model = model = skeletonization(model,self.pruning_level,dataloader,loss_fn)
             pred = model(X)
             loss_prop = loss_fn(pred, y)
             # computing the change in the loss
