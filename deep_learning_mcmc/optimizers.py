@@ -284,6 +284,8 @@ class MCMCOptimizer(Optimizer):
             transform=ToTensor())
             pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
         for i in range(self.iter_mcmc):
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
+                skeletonization(model,self.pruning_level,pruning_dataloader)
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
@@ -297,8 +299,6 @@ class MCMCOptimizer(Optimizer):
             # applying the changes to get the new value of the loss
             self.selector.update(model, neighborhood, epsilon)
             #to prune or not to prune
-            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
-                skeletonization(model,self.pruning_level,pruning_dataloader)
             pred = model(X)
             loss_prop = loss_fn(pred, y)
             # computing the change in the loss
