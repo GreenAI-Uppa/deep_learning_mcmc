@@ -148,6 +148,8 @@ def skeletonization(model,pruning_level,dataloader):
         cpt+=1
         #skeletone.fc1.weight.data[:,index] = torch.zeros(10)
         model.fc1.weight.data[:,index] = torch.zeros(10)
+    loss_fn = torch.nn.CrossEntropyLoss()
+    print('test accuracy',nets.evaluate(dataloader,model,loss_fn)[1],'after skeletonization')
     return()
 
 #######################
@@ -295,7 +297,7 @@ class MCMCOptimizer(Optimizer):
             # applying the changes to get the new value of the loss
             self.selector.update(model, neighborhood, epsilon)
             #to prune or not to prune
-            if self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
                 skeletonization(model,self.pruning_level,pruning_dataloader)
             pred = model(X)
             loss_prop = loss_fn(pred, y)
