@@ -107,6 +107,7 @@ def relevance(model,loss_fn):
     device = next(model.parameters()).device
     autograd_tensor = autograd_tensor.to(device)
     gg = []
+    lengths = []
     test_data = datasets.CIFAR10(root='../data',
         train=False,
         download=True,
@@ -124,8 +125,11 @@ def relevance(model,loss_fn):
         pred = forward_alpha(model,autograd_tensor,X)
         loss = loss_fn(pred, y)
         gg.append(torch.autograd.grad(loss, autograd_tensor, retain_graph=True))
-    tensor_gg = torch.tensor([list(gg[k][0]) for k in range(len(dataloader))]).to(device)
-    result = torch.mean(tensor_gg,0)
+        lengths.append(X.shape[0])
+    normalization = torch.tensor([elt/sum(lengths) for elt in lengths])
+    tensor_gg = torch.tensor([list(gg[k][0]) for k in range(len(gg))])
+    #result = torch.mean(tensor_gg,0) 
+    result = [torch.sum(torch.mul(normalization,elt)) for elt in [tensor_gg[:,k] for k in range(tensor_gg.shape[1])]]
     return(-result)
 
 def skeletonization(model,pruning_level,loss_fn):
