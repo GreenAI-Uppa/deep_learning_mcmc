@@ -238,7 +238,7 @@ class MCMCOptimizer(Optimizer):
             for cle in range(model.conv1.weight.data.shape[0]):
                 relevance_dict[cle] = 0
         for i in range(self.iter_mcmc):
-            if i>500 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
+            if i>500 and self.pruning_level>0 and i%200 == 0:#skeletonize any 200 mcmc iterations
                 skeletonization(model,self.pruning_level,relevance_dict)
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
@@ -270,7 +270,7 @@ class MCMCOptimizer(Optimizer):
                 decision = 'accepted'
                 if layer_idx == 0:
                     relevance_dict[int(idces[0][0][0])]+=1
-                    print([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0])
+                    print(sorted([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0],key=lambda tup: tup[1],reverse=True))
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
