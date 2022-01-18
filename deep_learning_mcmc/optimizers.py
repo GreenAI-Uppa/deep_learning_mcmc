@@ -47,10 +47,17 @@ class GradientOptimizer(Optimizer):
 
 
     def train_1_epoch(self, dataloader, model, loss_fn):
+
         """train the data for 1 epoch"""
         num_items_read = 0
         # attempting to guess the device on the model.
         device = next(model.parameters()).device
+        if self.pruning_level>0:
+            test_data = datasets.CIFAR10(root='../data',
+            train=False,
+            download=True,
+            transform=ToTensor())
+            pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
         for i, (X, y) in enumerate(dataloader):
             """
             if i <= self.current_batch:
@@ -67,11 +74,9 @@ class GradientOptimizer(Optimizer):
             X = X.to(device)
             y = y.to(device)
             self.train_1_batch(X, y, model, loss_fn)
-            if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 gradient step
-                print('skeletonization iteration')
-                model = skeletonization(model,self.pruning_level,loss_fn)
-                print(model)
-        """
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 gradient step
+                skeletonization(model,self.pruning_level,pruning_dataloader)
+                """
         if len(dataloader) - 1 <= i:
             i = 0
         self.current_batch = i
@@ -101,18 +106,20 @@ def forward_alpha(model,alpha, x):
         x = model.fc1(x)
         return x
 
-def relevance(model,loss_fn):
+def relevance(model,dataloader):
     autograd_tensor = torch.ones((model.nb_filters * 8 * 8), requires_grad=True)
     num_items_read = 0
+    loss_fn = torch.nn.CrossEntropyLoss()
     device = next(model.parameters()).device
     autograd_tensor = autograd_tensor.to(device)
     gg = []
     lengths = []
-    test_data = datasets.CIFAR10(root='../data',
+    '''    test_data = datasets.CIFAR10(root='../data',
         train=False,
         download=True,
         transform=ToTensor())
-    dataloader = DataLoader(test_data, batch_size=256, num_workers=16)
+    dataloader = DataLoader(test_data, batch_size=256, num_workers=8)
+    '''
     #print(device,'used for training')
     for _, (X, y) in enumerate(dataloader):
         if 1000000 <= num_items_read:
@@ -128,21 +135,20 @@ def relevance(model,loss_fn):
         lengths.append(X.shape[0])
     normalization = torch.tensor([elt/sum(lengths) for elt in lengths])
     tensor_gg = torch.tensor([list(gg[k][0]) for k in range(len(gg))])
-    #result = torch.mean(tensor_gg,0) 
     result = [torch.sum(torch.mul(normalization,elt)) for elt in [tensor_gg[:,k] for k in range(tensor_gg.shape[1])]]
-    return(-result)
+    return(-torch.tensor(result))
 
-def skeletonization(model,pruning_level,loss_fn):
-    relevance_ = relevance(model,loss_fn)
+def skeletonization(model,pruning_level,dataloader):
+    relevance_ = relevance(model,dataloader)
     size = int(model.fc1.weight.data.shape[1]*(1-pruning_level))
     keep_indices = torch.argsort(-relevance_)[:size]
     device = next(model.parameters()).device
-    skeletone = nets.ConvNet(model.nb_filters,model.channels).to(device)
-    skeletone.conv1.weight.data = copy.deepcopy(model.conv1.weight.data)
-    skeletone.fc1.weight.data = copy.deepcopy(model.fc1.weight.data)
-    for index in set(range(4096))-set(keep_indices):
-        skeletone.fc1.weight.data[:,index] = torch.zeros(10)
-    return(skeletone)
+    cpt = 0
+    for index in set(range(model.fc1.weight.data.shape[1]))-set([int(elt) for elt in keep_indices]):
+        cpt+=1
+        #skeletone.fc1.weight.data[:,index] = torch.zeros(10)
+        model.fc1.weight.data[:,index] = torch.zeros(10)
+    return()
 
 #######################
 #End of Mozer pruning function
@@ -269,6 +275,12 @@ class MCMCOptimizer(Optimizer):
         ar = Acceptance_ratio()
         pred = model(X)
         loss = loss_fn(pred,y).item()
+        if self.pruning_level>0:
+            test_data = datasets.CIFAR10(root='../data',
+            train=False,
+            download=True,
+            transform=ToTensor())
+            pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
         for i in range(self.iter_mcmc):
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
@@ -283,9 +295,8 @@ class MCMCOptimizer(Optimizer):
             # applying the changes to get the new value of the loss
             self.selector.update(model, neighborhood, epsilon)
             #to prune or not to prune
-            if self.pruning_level>0 and i%50 == 0:#skeletonize any 50 mcmc iterations
-                print('skeletonization iteration')
-                model = skeletonization(model,self.pruning_level,loss_fn)
+            if self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
+                skeletonization(model,self.pruning_level,pruning_dataloader)
             pred = model(X)
             loss_prop = loss_fn(pred, y)
             # computing the change in the loss
