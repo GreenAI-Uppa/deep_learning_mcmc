@@ -298,7 +298,6 @@ class MCMCOptimizer(Optimizer):
 
             # applying the changes to get the new value of the loss
             self.selector.update(model, neighborhood, epsilon)
-            #to prune or not to prune
             pred = model(X)
             loss_prop = loss_fn(pred, y)
             # computing the change in the loss
