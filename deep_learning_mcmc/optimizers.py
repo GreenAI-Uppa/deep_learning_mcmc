@@ -96,60 +96,16 @@ class GradientOptimizer(Optimizer):
             layer.bias.data -=  gg[2*i+1] * self.lr
 
 #######################
-#Mozer pruning function
+#MCMC pruning Mozer inspired
 #######################
-def forward_alpha(model,alpha, x):
-        x = model.activations[0](model.conv1(x))
-        x = x.view(-1, model.nb_filters * 8 * 8)
-        x = [torch.mul(elt,alpha) for elt in x]
-        x = torch.stack(x)
-        x = model.fc1(x)
-        return x
 
-def relevance(model,dataloader):
-    autograd_tensor = torch.ones((model.nb_filters * 8 * 8), requires_grad=True)
-    num_items_read = 0
-    loss_fn = torch.nn.CrossEntropyLoss()
+def skeletonization(model,pruning_level,relevance):
+    size = int(model.conv1.weight.data.shape[0]*(1-pruning_level))
+    relevance_list = torch.tensor([relevance[k] for k in range(model.conv1.weight.data.shape[0])])
+    keep_indices = torch.argsort(-relevance_list)[:size]
     device = next(model.parameters()).device
-    autograd_tensor = autograd_tensor.to(device)
-    gg = []
-    lengths = []
-    '''    test_data = datasets.CIFAR10(root='../data',
-        train=False,
-        download=True,
-        transform=ToTensor())
-    dataloader = DataLoader(test_data, batch_size=256, num_workers=8)
-    '''
-    #print(device,'used for training')
-    for _, (X, y) in enumerate(dataloader):
-        if 1000000 <= num_items_read:
-            break
-        X = X[:min(1000000 - num_items_read, X.shape[0])]
-        y = y[:min(1000000 - num_items_read, X.shape[0])]
-        num_items_read = min(1000000, num_items_read + X.shape[0])
-        X = X.to(device)
-        y = y.to(device)
-        pred = forward_alpha(model,autograd_tensor,X)
-        loss = loss_fn(pred, y)
-        gg.append(torch.autograd.grad(loss, autograd_tensor, retain_graph=True))
-        lengths.append(X.shape[0])
-    normalization = torch.tensor([elt/sum(lengths) for elt in lengths])
-    tensor_gg = torch.tensor([list(gg[k][0]) for k in range(len(gg))])
-    result = [torch.sum(torch.mul(normalization,elt)) for elt in [tensor_gg[:,k] for k in range(tensor_gg.shape[1])]]
-    return(-torch.tensor(result))
-
-def skeletonization(model,pruning_level,dataloader):
-    relevance_ = relevance(model,dataloader)
-    size = int(model.fc1.weight.data.shape[1]*(1-pruning_level))
-    keep_indices = torch.argsort(-relevance_)[:size]
-    device = next(model.parameters()).device
-    cpt = 0
-    for index in set(range(model.fc1.weight.data.shape[1]))-set([int(elt) for elt in keep_indices]):
-        cpt+=1
-        #skeletone.fc1.weight.data[:,index] = torch.zeros(10)
-        model.fc1.weight.data[:,index] = torch.zeros(10)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    print('test accuracy',nets.evaluate(dataloader,model,loss_fn)[1],'after skeletonization')
+    for index in set(range(model.conv1.weight.data.shape[0]))-set([int(elt) for elt in keep_indices]):
+        model.conv1.weight.data[index,:,:,:] = torch.zeros([3,11,11])
     return()
 
 #######################
@@ -278,14 +234,12 @@ class MCMCOptimizer(Optimizer):
         pred = model(X)
         loss = loss_fn(pred,y).item()
         if self.pruning_level>0:
-            test_data = datasets.CIFAR10(root='../data',
-            train=False,
-            download=True,
-            transform=ToTensor())
-            pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
+            relevance_dict = {}
+            for cle in range(model.conv1.weight.data.shape[0]):
+                relevance_dict[cle] = 0
         for i in range(self.iter_mcmc):
-            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
-                skeletonization(model,self.pruning_level,pruning_dataloader)
+            if i>500 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
+                skeletonization(model,self.pruning_level,relevance_dict)
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
@@ -314,6 +268,9 @@ class MCMCOptimizer(Optimizer):
                 ar.incr_acc_count(key)
                 loss = loss_prop
                 decision = 'accepted'
+                if layer_idx == 0:
+                    relevance_dict[int(idces[0][0][0])]+=1
+                    print([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0])
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
