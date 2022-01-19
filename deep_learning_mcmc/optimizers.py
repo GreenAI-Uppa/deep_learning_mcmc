@@ -9,6 +9,9 @@ from torchvision import datasets
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 import copy
+from torchvision import datasets
+from torch.utils.data import DataLoader
+from torchvision.transforms import ToTensor
 
 class Optimizer(ABC):
     """Generic optimizer interface"""
@@ -237,10 +240,24 @@ class MCMCOptimizer(Optimizer):
             relevance_dict = {}
             for cle in range(model.conv1.weight.data.shape[0]):
                 relevance_dict[cle] = 0
+            test_data = datasets.CIFAR10(root='../data',
+            train=False,
+            download=True,
+            transform=ToTensor())
+            test_dataloader = DataLoader(test_data, batch_size=256, num_workers=16)
+            loss_fn = torch.nn.CrossEntropyLoss()
+        current_pruning_level = self.pruning_level
         for i in range(self.iter_mcmc):
-            if i>500 and self.pruning_level>0 and i%200 == 0:#skeletonize any 200 mcmc iterations
-                skeletonization(model,self.pruning_level,relevance_dict)
-            # selecting a layer and a  at random
+            #if i>100 and i%200 == 0 and self.pruning_level>0:
+            #    print('iteration',i,sorted([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0],key=lambda tup: tup[1],reverse=True)[:15])
+            if i>0 and self.pruning_level>0 and i%4000 == 0:#skeletonize iteration
+                print(i,':',current_pruning_level,'| Performances before skeletonization',nets.evaluate(test_dataloader,model,loss_fn),torch.nonzero(model.conv1.weight.data).shape[0])
+                skeletonization(model,current_pruning_level,relevance_dict)
+                loss = loss_fn(model(X),y)#update loss as new init to metropolis hasting
+                print('Performances after skeletonization',nets.evaluate(test_dataloader,model,loss_fn),torch.nonzero(model.conv1.weight.data).shape[0])
+                current_pruning_level += 0.02
+                #print('update pruning level to',current_pruning_level)
+            # selecting a layer and weights at random
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
             params_line = self.selector.getParamLine(neighborhood, model)
@@ -268,9 +285,8 @@ class MCMCOptimizer(Optimizer):
                 ar.incr_acc_count(key)
                 loss = loss_prop
                 decision = 'accepted'
-                if layer_idx == 0:
+                if layer_idx == 0 and self.pruning_level>0:
                     relevance_dict[int(idces[0][0][0])]+=1
-                    print(sorted([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0],key=lambda tup: tup[1],reverse=True))
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
