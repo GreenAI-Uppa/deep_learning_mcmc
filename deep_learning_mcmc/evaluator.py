@@ -45,9 +45,7 @@ def evaluateLayerWise(dataloader, model, loss_fn):
     test_loss = dict([(i,0) for i in range(len(model)) ])
     correct =  dict([(i,0) for i in range(len(model)) ])
     with torch.no_grad():
-        model.eval()
         for X, y in dataloader:
-            #import pdb; pdb.set_trace()
             for i, m in enumerate(model):
                 X = X.to(device)
                 y = y.to(device)

@@ -241,7 +241,12 @@ class MCMCOptimizer(Optimizer):
         pred = model(X)
         loss = loss_fn(pred,y).item()
         for i in range(self.iter_mcmc):
-            # selecting a layer and a  at random
+            # selecting a layer and a layer at random
+            get epsilon for each parameter
+            get ypred for each parameter change
+                it can be computed as a delta when compared to pred
+            get losses for all
+            
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
             params_line = self.selector.getParamLine(neighborhood, model)

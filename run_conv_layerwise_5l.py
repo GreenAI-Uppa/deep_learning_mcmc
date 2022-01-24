@@ -46,20 +46,23 @@ def parse_model_config(params, training_data, train_dataloader):
     # whether to use binary weights
     # building the model
     kernel_size = 5
-    conv1 = nets.ConvNetAuxResult(32, 3, kernel_size=kernel_size, input_size=w)
+    conv1 = nets.ConvNetAuxResult(32, 3, stride=1, kernel_size=kernel_size, input_size=w)
     out_conv1 = (w - kernel_size ) + 1 # (image_width - kernel_size + padding )/ stride + 1
     conv2 = nets.ConvNetAuxResult(64, 32, kernel_size=kernel_size, stride=1, input_size=conv1.outconv_size)
-    fc1 = nets.FCAuxResult([conv2.outconv_size, 120, 10])
+    fc1 = nets.FCAuxResult([conv2.input_layer_size, 120, 10], flatten=True)
     fc2 = nets.FCAuxResult([120, 84, 10])
     model = [conv1, conv2, fc1, fc2]
+
+    # small check that it runs correctly
     X, y = next(iter(train_dataloader))
     outconv1, aux = conv1(X)
-    print(outconv1.shape)
+    print(outconv1.shape, conv1.outconv_size, conv1.input_layer_size, aux.shape)
     outconv2, aux = conv2(outconv1)
+    print(outconv2.shape, conv2.outconv_size, conv2.input_layer_size, aux.shape)
     outfc1, aux = fc1(outconv2)
-    outfc2, aux = conv1(outfc1)
-
-    import pdb; pdb.set_trace()
+    print(outfc1.shape, aux.shape)
+    outfc2, aux = fc2(outfc1)
+    print(outfc2.shape, aux.shape)
     return model
 
 
@@ -143,11 +146,15 @@ for t in range(epochs):
         acc = accuracy[l]
         los = loss[l]
         print(f"Training Error: Layer {l} \n Accuracy: {(100*acc):>0.1f}%, Avg loss: {los:>8f} \n")
+    result['training_loss'] = loss
+    result['training_accuracy'] = accuracy
     loss, accuracy = evaluator.evaluateLayerWise(test_dataloader, model, loss_fn)
     for l in loss:
         acc = accuracy[l]
         los = loss[l]
         print(f"Test Error: Layer {l} \n Accuracy: {(100*acc):>0.1f}%, Avg loss: {los:>8f} \n")
+    result['testing_loss'] = loss
+    result['testing_accuracy'] = accuracy
 
     if int(math.log(t+1,10)) == math.log(t+1,10):
         torch.save(model, exp_name+str(t+1)+'.th')

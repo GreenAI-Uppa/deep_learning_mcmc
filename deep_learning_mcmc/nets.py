@@ -247,7 +247,7 @@ class FCAuxResult(nn.Module):
     """
     This class is used for the layer wise optimization with a linear layer
     """
-    def __init__(self, sizes, binary_flag=False, activation=None):
+    def __init__(self, sizes, binary_flag=False, activation=None, flatten=True):
         """
         builds a multi layer perceptron
         sizes : list of the size of the different layers [input_size, layer_size, output_size ]
@@ -256,6 +256,7 @@ class FCAuxResult(nn.Module):
         if len(sizes) !=  3:
             raise Exception("sizes argument is" +  sizes.__str__() + ' . it should be of the shape : [input_size, layer_size, output_size ]')
         super().__init__()
+        self.flatten = flatten
         input_size, layer_size, output_size = sizes
         self.layers = nn.ModuleList()
         if activation is None:
@@ -271,8 +272,10 @@ class FCAuxResult(nn.Module):
         self.dropout = nn.Dropout(p=0.2)
 
     def forward(self, x):
+        if self.flatten:
+            x = x.flatten(start_dim=1)
         z = self.dropout(self.activation(self.fc1(x)))
-        aux = self.fc2(x)
+        aux = self.fc2(z)
         return z, aux
 
 class ConvNetAuxResult(nn.Module):
