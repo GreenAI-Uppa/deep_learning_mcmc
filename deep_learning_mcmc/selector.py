@@ -12,10 +12,10 @@ def get_idces_uniform_linear(neighborhood_size):
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
-        layer_size = n_output * n_input
+        layer_size = n_output * n_input #TO CHECK this should be n_output * n_input + n_output
         if neighborhood_size > layer_size:
             raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(layer_size)+"\n neighborhood_size should be lower than this number")
-        a, b = torch.arange(n_output), torch.arange(n_input)
+        a, b = torch.arange(n_output), torch.arange(n_input) # to check this shoud be torch.arange(n_output+1)
         idces_w = torch.cat((a.repeat(n_input).reshape(layer_size,1),b.repeat_interleave(n_output).reshape(layer_size,1)), dim=1)
         idces_of_idces = list(range(layer_size))
         random.shuffle(idces_of_idces)

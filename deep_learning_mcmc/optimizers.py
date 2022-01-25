@@ -90,12 +90,12 @@ class GradientOptimizer(Optimizer):
                 l0_before = torch.nonzero(model.fc1.weight.data).shape[0]
                 print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
                 skeletonization(model,current_pruning_level,pruning_dataloader)
-                acc_after = nets.evaluate(pruning_dataloader,model,loss_fn) 
+                acc_after = nets.evaluate(pruning_dataloader,model,loss_fn)
                 l0_after = torch.nonzero(model.fc1.weight.data).shape[0]
                 res[i]={'pruning_level':current_pruning_level,'acc_before':acc_before,'acc_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
                 current_pruning_level += 0.01
                 print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_after,'l0 norm',l0_after)
-                
+
         with open('ICML/64_gradient.json','w') as outputfile:
             json.dump(res,outputfile)
         """
@@ -125,7 +125,7 @@ def forward_alpha(model,alpha, x):
     forward with continuous dropout at fc layer
     -model: initial model (ConvNet instance)
     -alpha: coefficient added to each output unit of the first layer
-    -x: input 
+    -x: input
     '''
     x = model.activations[0](model.conv1(x))
     x = x.view(-1, model.nb_filters * 8 * 8)
@@ -201,6 +201,24 @@ def skeletonization_mcmc(model,pruning_level,relevance):
     device = next(model.parameters()).device
     for index in set(range(model.conv1.weight.data.shape[0]))-set([int(elt) for elt in keep_indices]):
         model.conv1.weight.data[index,:,:,:] = torch.zeros([3,11,11])
+    return()
+
+def skeletonization_mcm_linear_layer(model,pruning_level,relevance):
+    '''
+    simple MCMC skeletonization of the convolutional layer learnt by the MCMC ietrations itself
+    -model: model to prune
+    -pruning_level: pourcentage of coefficients killed
+    -relevance: dictionnary with keys=filter index and values=number of accepts in the mcmc optimizer (we keep the filters with biggest accepts)
+    '''
+    n_output, n_input = model.fc1.weight.data.shape
+    size = int((n_output * n_input + n_output)(1-pruning_level))
+    relevance = torch.cat((relevance['weight'], relevance['bias']),dim=1)
+    remove_indices = torch.argsort(torch.flatten(-relevance))[size:]
+    remove_rows = remove_indices // relevance.shape[1]
+    remove_cols = remove_indices % relevance.shape[1]
+    selected_bias = remove_cols == n_output
+    model.fc1.weight.data[remove_rows[torch.logical_not(selected_bias)],remove_cols[torch.logical_not(selected_bias)]] = 0
+    model.fc1.bias.data[remove_cols[selected_bias]] = 0
     return()
 
 #######################
@@ -332,6 +350,10 @@ class MCMCOptimizer(Optimizer):
             relevance_dict = {}
             for cle in range(model.conv1.weight.data.shape[0]):
                 relevance_dict[cle] = 0
+            relevance_dict_linear_layer_w = torch.zeros(model.fc1.weight.data.shape)
+            relevance_dict_linear_layer_b = torch.zeros(model.fc1.bias.data.shape[0],1)
+            relevance_dict_linear_layer = {'weight':relevance_dict_linear_layer_w, 'bias':relevance_dict_linear_layer_b}
+
             test_data = datasets.CIFAR10(root='../data',
             train=False,
             download=True,
@@ -344,11 +366,11 @@ class MCMCOptimizer(Optimizer):
             #if i>100 and i%200 == 0 and self.pruning_level>0:
             #    print('iteration',i,sorted([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0],key=lambda tup: tup[1],reverse=True)[:15])
             if i>0 and self.pruning_level>0 and i%2000 == 0:#skeletonize iteration
-                acc_before = nets.evaluate(test_dataloader,model,loss_fn) 
+                acc_before = nets.evaluate(test_dataloader,model,loss_fn)
                 l0_before = torch.nonzero(model.conv1.weight.data).shape[0]
                 print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
                 skeletonization_mcmc(model,current_pruning_level,relevance_dict)
-                acc_after = nets.evaluate(test_dataloader,model,loss_fn) 
+                acc_after = nets.evaluate(test_dataloader,model,loss_fn)
                 l0_after = torch.nonzero(model.conv1.weight.data).shape[0]
                 loss = loss_fn(model(X),y)#update loss as new init to metropolis hasting
                 print('Performances after skeletonization',acc_after,'l0 norm',l0_after)
@@ -385,6 +407,9 @@ class MCMCOptimizer(Optimizer):
                 decision = 'accepted'
                 if layer_idx == 0 and self.pruning_level>0:
                     relevance_dict[int(idces[0][0][0])]+=1
+                if layer_idx == 1 and self.pruning_level>0:
+                    relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] +=1
+                    relevance_dict_linear_layer['bias'][idces[1]] +=1
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
