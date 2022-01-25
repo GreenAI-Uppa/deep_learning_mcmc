@@ -90,6 +90,7 @@ class GradientOptimizer(Optimizer):
                 l0_before = torch.nonzero(model.fc1.weight.data).shape[0]
                 print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
                 skeletonization(model,current_pruning_level,pruning_dataloader)
+                skeletonization_conv(model,current_pruning_level,pruning_dataloader)
                 acc_after = nets.evaluate(pruning_dataloader,model,loss_fn)
                 l0_after = torch.nonzero(model.fc1.weight.data).shape[0]
                 res[i]={'pruning_level':current_pruning_level,'acc_before':acc_before,'acc_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
@@ -134,13 +135,27 @@ def forward_alpha(model,alpha, x):
     x = model.fc1(x)
     return x
 
+def forward_alpha_conv(model,alpha, x):
+    '''
+    forward with continuous dropout at fc layer
+    -model: initial model (ConvNet instance)
+    -alpha: coefficient added to each output unit of the first layer
+    -x: input
+    '''
+    x = model.activations[0](model.conv1(x))
+    for idx_filter in range(model.nb_filters):
+        x[:,idx_filter,:,:] *= alpha[idx_filter]
+    x = x.view(-1, model.nb_filters * 8 * 8)
+    x = model.fc1(x)
+    return x
+
 def relevance(model,dataloader):
     '''
     compute relevance coefficients based on Mozer and Smolesky 1989
     -model: model analyzed
     -dataloader: dataset to compute the gradient of the loss at alpha=1
     '''
-    autograd_tensor = torch.ones((model.nb_filters * 8 * 8), requires_grad=True)
+    autograd_tensor = torch.ones((model.nb_filters * 8 * 8), requires_grad=True) # size is 4096; input of hidden layer
     num_items_read = 0
     loss_fn = torch.nn.CrossEntropyLoss()
     device = next(model.parameters()).device
@@ -158,11 +173,43 @@ def relevance(model,dataloader):
         pred = forward_alpha(model,autograd_tensor,X)
         loss = loss_fn(pred, y)
         gg.append(torch.autograd.grad(loss, autograd_tensor, retain_graph=True))
+        lengths.append(X.shape[0])  # contains the batch size
+    normalization = torch.tensor([elt/sum(lengths) for elt in lengths])
+    # transform the list to a tensor. Each line is one loop iteration (ie one list element)
+    tensor_gg = torch.tensor([list(gg[k][0]) for k in range(len(gg))]) # 40 x 4096
+    result = [torch.sum(torch.mul(normalization,elt)) for elt in [tensor_gg[:,k] for k in range(tensor_gg.shape[1])]]
+    return(-torch.tensor(result)) # tensor of size 4096
+
+def relevance_conv(model,dataloader):
+    '''
+    compute relevance coefficients based on Mozer and Smolesky 1989
+    -model: model analyzed
+    -dataloader: dataset to compute the gradient of the loss at alpha=1
+    '''
+    autograd_tensor = torch.ones((model.nb_filters), requires_grad=True)
+    num_items_read = 0
+    loss_fn = torch.nn.CrossEntropyLoss()
+    device = next(model.parameters()).device
+    autograd_tensor = autograd_tensor.to(device)
+    gg = []
+    lengths = []
+    for _, (X, y) in enumerate(dataloader):
+        if 1000000 <= num_items_read:
+            break
+        X = X[:min(1000000 - num_items_read, X.shape[0])]
+        y = y[:min(1000000 - num_items_read, X.shape[0])]
+        num_items_read = min(1000000, num_items_read + X.shape[0])
+        X = X.to(device)
+        y = y.to(device)
+        pred = forward_alpha_conv(model,autograd_tensor,X)
+        loss = loss_fn(pred, y)
+        gg.append(torch.autograd.grad(loss, autograd_tensor, retain_graph=True))
         lengths.append(X.shape[0])
     normalization = torch.tensor([elt/sum(lengths) for elt in lengths])
     tensor_gg = torch.tensor([list(gg[k][0]) for k in range(len(gg))])
     result = [torch.sum(torch.mul(normalization,elt)) for elt in [tensor_gg[:,k] for k in range(tensor_gg.shape[1])]]
     return(-torch.tensor(result))
+
 
 def skeletonization(model,pruning_level,dataloader):
     '''
@@ -180,6 +227,26 @@ def skeletonization(model,pruning_level,dataloader):
         cpt+=1
         #skeletone.fc1.weight.data[:,index] = torch.zeros(10)
         model.fc1.weight.data[:,index] = torch.zeros(10)
+    loss_fn = torch.nn.CrossEntropyLoss()
+    print('test accuracy',nets.evaluate(dataloader,model,loss_fn)[1],'after skeletonization')
+    return()
+
+def skeletonization_conv(model,pruning_level,dataloader):
+    '''
+    skeletone the fc layer based on Mozer and Smolesky with the order statistic of the relevance coefficient of each hidden unit
+    -model: model to prune
+    -pruning_level: pourcentage of weights of the fc layer let to zero
+    -dataloader: dataset to compute the relevance function above
+    '''
+    relevance_ = relevance_conv(model,dataloader)
+    size = int(model.nb_filters*(1-pruning_level))
+    # selection of the end of the list, ie the ones with low relevance
+    remove_indices = torch.argsort(-relevance_)[size:]
+    device = next(model.parameters()).device
+    cpt = 0
+    # prune the selected filters, ie set them to 0
+    for index in remove_indices:  #set(range(model.fc1.weight.data.shape[1]))-set([int(elt) for elt in keep_indices]):
+        model.conv1.weight.data[index] = 0
     loss_fn = torch.nn.CrossEntropyLoss()
     print('test accuracy',nets.evaluate(dataloader,model,loss_fn)[1],'after skeletonization')
     return()
