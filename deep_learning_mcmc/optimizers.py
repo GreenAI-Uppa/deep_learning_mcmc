@@ -281,9 +281,9 @@ def skeletonization_mcm_linear_layer(model,pruning_level,relevance):
     size = int((n_output * n_input + n_output)*(1-pruning_level))
     relevance = torch.cat((relevance['weight'], relevance['bias']),dim=1)
     remove_indices = torch.argsort(torch.flatten(-relevance))[size:]
-    remove_rows = remove_indices // relevance.shape[1]
+    remove_rows = torch.div(remove_indices, relevance.shape[1], rounding_mode='floor')
     remove_cols = remove_indices % relevance.shape[1]
-    selected_bias = remove_cols == n_output
+    selected_bias = remove_rows == n_input
     model.fc1.weight.data[remove_rows[torch.logical_not(selected_bias)],remove_cols[torch.logical_not(selected_bias)]] = 0
     model.fc1.bias.data[remove_cols[selected_bias]] = 0
     return()
@@ -432,7 +432,7 @@ class MCMCOptimizer(Optimizer):
         for i in range(self.iter_mcmc):
             #if i>100 and i%200 == 0 and self.pruning_level>0:
             #    print('iteration',i,sorted([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0],key=lambda tup: tup[1],reverse=True)[:15])
-            if i>0 and self.pruning_level>0 and i%2000 == 0:#skeletonize iteration
+            if i>0 and self.pruning_level>0 and i%50 == 0:#skeletonize iteration
                 acc_before = nets.evaluate(test_dataloader,model,loss_fn)
                 l0_before = torch.nonzero(model.conv1.weight.data).shape[0]
                 print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
