@@ -283,7 +283,7 @@ def skeletonization_mcm_linear_layer(model,pruning_level,relevance):
     remove_indices = torch.argsort(torch.flatten(-relevance))[size:]
     remove_rows = torch.div(remove_indices, relevance.shape[1], rounding_mode='floor')
     remove_cols = remove_indices % relevance.shape[1]
-    selected_bias = remove_rows == n_input
+    selected_bias = remove_cols == n_input
     model.fc1.weight.data[remove_rows[torch.logical_not(selected_bias)],remove_cols[torch.logical_not(selected_bias)]] = 0
     model.fc1.bias.data[remove_cols[selected_bias]] = 0
     return()
