@@ -83,8 +83,8 @@ print(params)
 batch_size = params['batch_size']
 
 # getting the data
-train_dataloader = DataLoader(training_data, batch_size=batch_size, num_workers=16)
-test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=16)
+train_dataloader = DataLoader(training_data, batch_size=batch_size, num_workers=0)
+test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=0)
 
 # setting the model
 
@@ -175,9 +175,9 @@ for t in range(epochs):
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
     if use_gradient:
-        optimizer.train_1_epoch(train_dataloader, model, loss_fn)
+        optimizer.train_1_epoch(train_dataloader, model, loss_fn,path=args.data_folder)
     else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=params['verbose'])
+        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, path=args.data_folder, verbose=params['verbose'])
     result = {"epoch":t}
     end_epoch = time.time()
     training_time += time.time() - start_epoch
