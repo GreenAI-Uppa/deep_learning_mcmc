@@ -140,7 +140,7 @@ class MozerPruner():
         for index in remove_indices:  #set(range(model.fc1.weight.data.shape[1]))-set([int(elt) for elt in keep_indices]):
             model.conv1.weight.data[index] = 0
         loss_fn = torch.nn.CrossEntropyLoss()
-        print('test accuracy',nets.evaluate(dataloader,model,loss_fn)[1],'after skeletonization')
+        #print('test accuracy',nets.evaluate(dataloader,model,loss_fn)[1],'after skeletonization')
         return()
 
 #######################
@@ -179,7 +179,7 @@ class MCMCPruner():
         remove_cols = remove_indices % relevance.shape[1]
         selected_bias = remove_cols == n_input
         model.fc1.weight.data[remove_rows[torch.logical_not(selected_bias)],remove_cols[torch.logical_not(selected_bias)]] = 0
-        model.fc1.bias.data[remove_cols[selected_bias]] = 0
+        model.fc1.bias.data[remove_rows[selected_bias]] = 0
         return()
 
 #######################
