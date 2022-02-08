@@ -101,7 +101,7 @@ class GradientOptimizer(Optimizer):
                     print('perf before skeletonization',acc_before,'l0 norm',l0_before,'perf after',acc_after,'l0 norm',l0_after)
                     current_pruning_level += 0.01
 
-        with open('ICML/32_gradient_newfreq.json','w') as outputfile:
+        with open('ICML/64_gradient_newfreq.json','w') as outputfile:
             json.dump(res,outputfile)
         """
         if len(dataloader) - 1 <= i:
@@ -264,12 +264,12 @@ class MCMCOptimizer(Optimizer):
             #    print('iteration',i,sorted([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0],key=lambda tup: tup[1],reverse=True)[:15])
             if i>0 and self.pruning_level>0 and i%2000 == 0:#skeletonize iteration
                 acc_before = nets.evaluate(test_dataloader,model,loss_fn)
-                l0_before = torch.nonzero(model.conv1.weight.data).shape[0]
+                l0_before = torch.nonzero(model.conv1.weight.data).shape[0]+torch.nonzero(model.fc1.weight.data).shape[0]
                 #print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
                 Pruner.skeletonize_conv(model,current_pruning_level,relevance_dict)
                 Pruner.skeletonize(model,current_pruning_level,relevance_dict_linear_layer)
                 acc_after = nets.evaluate(test_dataloader,model,loss_fn)
-                l0_after = torch.nonzero(model.conv1.weight.data).shape[0]
+                l0_after = torch.nonzero(model.conv1.weight.data).shape[0]+torch.nonzero(model.fc1.weight.data).shape[0]
                 loss = loss_fn(model(X),y)#update loss as new init to metropolis hasting
                 print(i,end='|')
                 #print('Performances after skeletonization',acc_after,'l0 norm',l0_after)
