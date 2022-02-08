@@ -69,7 +69,7 @@ class GradientOptimizer(Optimizer):
         current_pruning_level = self.pruning_level
         res = {}
         Pruner = pruning.MozerPruner()
-        for i in range(2000):
+        for i in range(200000):
             """
             if i <= self.current_batch:
                 continue
@@ -87,19 +87,21 @@ class GradientOptimizer(Optimizer):
             X = X.to(device)
             y = y.to(device)
             self.train_1_batch(X, y, model, loss_fn)
-            if i>0 and self.pruning_level>0 and i%20 == 0:#skeletonize any 2000 gradient step
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 2000 gradient step
                 acc_before = nets.evaluate(pruning_dataloader,model,loss_fn)
-                l0_before = torch.nonzero(model.fc1.weight.data).shape[0]
-                print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
-                Pruner.skeletonize(model,current_pruning_level,dataloader)
+                l0_before = torch.nonzero(model.fc1.weight.data).shape[0]+torch.nonzero(model.conv1.weight.data).shape[0]
+                #print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
                 Pruner.skeletonize_conv(model,current_pruning_level,dataloader)
+                Pruner.skeletonize(model,current_pruning_level,dataloader)
                 acc_after = nets.evaluate(pruning_dataloader,model,loss_fn)
-                l0_after = torch.nonzero(model.fc1.weight.data).shape[0]
-                res[i]={'pruning_level':current_pruning_level,'acc_before':acc_before,'acc_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
-                current_pruning_level += 0.01
-                print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_after,'l0 norm',l0_after)
+                l0_after = torch.nonzero(model.fc1.weight.data).shape[0]+torch.nonzero(model.conv1.weight.data).shape[0]
+                if i%2000 == 0:
+                    res[i]={'pruning_level':current_pruning_level,'acc_before':acc_before,'acc_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
+                    print('iteration',i,':','pruning level',current_pruning_level)
+                    print('perf before skeletonization',acc_before,'l0 norm',l0_before,'perf after',acc_after,'l0 norm',l0_after)
+                    current_pruning_level += 0.01
 
-        with open('ICML/64_gradient.json','w') as outputfile:
+        with open('ICML/32_gradient_newfreq.json','w') as outputfile:
             json.dump(res,outputfile)
         """
         if len(dataloader) - 1 <= i:
@@ -260,18 +262,22 @@ class MCMCOptimizer(Optimizer):
         for i in range(self.iter_mcmc):
             #if i>100 and i%200 == 0 and self.pruning_level>0:
             #    print('iteration',i,sorted([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0],key=lambda tup: tup[1],reverse=True)[:15])
-            if i>0 and self.pruning_level>0 and i%20 == 0:#skeletonize iteration
+            if i>0 and self.pruning_level>0 and i%2000 == 0:#skeletonize iteration
                 acc_before = nets.evaluate(test_dataloader,model,loss_fn)
                 l0_before = torch.nonzero(model.conv1.weight.data).shape[0]
-                print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
+                #print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
                 Pruner.skeletonize_conv(model,current_pruning_level,relevance_dict)
                 Pruner.skeletonize(model,current_pruning_level,relevance_dict_linear_layer)
                 acc_after = nets.evaluate(test_dataloader,model,loss_fn)
                 l0_after = torch.nonzero(model.conv1.weight.data).shape[0]
                 loss = loss_fn(model(X),y)#update loss as new init to metropolis hasting
-                print('Performances after skeletonization',acc_after,'l0 norm',l0_after)
-                res[i]={'pruning_level':current_pruning_level,'acc_before':acc_before,'acc_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
-                current_pruning_level += 0.01
+                print(i,end='|')
+                #print('Performances after skeletonization',acc_after,'l0 norm',l0_after)
+                if i%2000 == 0:
+                    res[i]={'pruning_level':current_pruning_level,'acc_before':acc_before,'acc_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
+                    print(i,'pruning level',current_pruning_level,'---')
+                    print('perf before skeletonization',acc_before,'l0 norm',l0_before,'perf after',acc_after,'l0 norm',l0_after)
+                    current_pruning_level += 0.01
                 #print('update pruning level to',current_pruning_level)
             # selecting a layer and weights at random
             layer_idx, idces = self.selector.get_neighborhood(model)
@@ -310,9 +316,14 @@ class MCMCOptimizer(Optimizer):
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
                 decision = 'rejected'
+                if layer_idx == 0 and self.pruning_level>0:
+                    relevance_dict[int(idces[0][0][0])]-=1
+                if layer_idx == 1 and self.pruning_level>0:
+                    relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] -=1
+                    relevance_dict_linear_layer['bias'][idces[1]] -=1
             if verbose:
                 print('moove',decision)
-        with open('ICML/64_notuniform.json', 'w') as outfile:
+        with open('ICML/64_mcmc_rejectintheloop.json', 'w') as outfile:
             json.dump(res, outfile)
         return ar
 
