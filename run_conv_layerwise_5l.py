@@ -43,14 +43,14 @@ def parse_optimizer_config(params):
 def parse_model_config(params, training_data, train_dataloader):
     """ setting the model"""
     n, w, h, channels = training_data.data.shape
-    # whether to use binary weights
+    n_classes = 10 # for cifar10
     # building the model
     kernel_size = 5
     conv1 = nets.ConvNetAuxResult(32, 3, stride=1, kernel_size=kernel_size, input_size=w)
     out_conv1 = (w - kernel_size ) + 1 # (image_width - kernel_size + padding )/ stride + 1
     conv2 = nets.ConvNetAuxResult(64, 32, kernel_size=kernel_size, stride=1, input_size=conv1.outconv_size)
-    fc1 = nets.FCAuxResult([conv2.input_layer_size, 120, 10], flatten=True)
-    fc2 = nets.FCAuxResult([120, 84, 10])
+    fc1 = nets.FCAuxResult([conv2.input_layer_size, 120, n_classes], flatten=True)
+    fc2 = nets.FCAuxResult([120, 84, n_classes])
     model = [conv1, conv2, fc1, fc2]
 
     # small check that it runs correctly

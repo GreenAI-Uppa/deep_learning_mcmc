@@ -22,11 +22,14 @@ def build_samplers(config):
 def build_sampler(config):
     """build 1 sampler or prior"""
     selector_name = config["name"]
-    if selector_name == "Student":
+    if selector_name == "Student" or selector_name == "StudentParallel":
         variance = config["variance"]
         return getattr(current_module, selector_name)(variance)
     elif selector_name=="BinarySampler":
         return getattr(current_module, selector_name)()
+    else:
+        raise RuntimeError("Found unknown sampler:" +selector_name+ " in the config. Please provide Student or BinarySampler")
+
 
 class SamplerList(object):
     def __init__(self, samplers, lambdas):
@@ -112,7 +115,7 @@ class Student(object):
         d = 1. * Num / Denom
         return d
 
-    def get_ratio(self, epsilon, params):
+    def get_ratio(self, epsilon, params, no_reduction=False):
         """
         compute the likelihood ratio of two variables
            student(params[i] + epsilon[i])
@@ -131,6 +134,37 @@ class Student(object):
         ratio = num / den
         return functools.reduce(mul, ratio, 1)
 
+class StudentParallel(Student):
+    def sample(self, sizes):
+        '''
+        Output:
+        Produce M samples of d-dimensional multivariate t distribution
+        Input:
+        n = # of samples to produce
+        '''
+        n = sizes[0] * sizes[1]
+        g = np.tile(np.random.gamma(self.df/2.,2./self.df,n),(self.d,1)).T
+        Z = np.random.multivariate_normal(np.zeros(self.d),self.S,n)
+        return (self.m + Z/np.sqrt(g)).reshape(sizes[0],sizes[1])
+
+    def get_ratio(self, epsilon, params):
+        """
+        compute the likelihood ratio of two variables
+           student(params[i] + epsilon[i])
+        Prod_i (   ------------------------      )
+               student(params[i])
+        """
+        #apply the move to get theta tilde
+        params_tilde = params + epsilon
+
+        # get the likelihood of the theta
+        den = self.t_distribution_fast(params)
+
+        # get the likelihood of the theta tilde
+        num = self.t_distribution_fast(params_tilde)
+
+        ratio = num / den
+        return ratio
 
 class BinarySampler(object):
     def sample(self, n, p=0.5):

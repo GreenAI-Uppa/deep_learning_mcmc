@@ -63,30 +63,39 @@ class LayerWiseOptimizer(GradientOptimizer):
         self.buffer_max_size = buffer_max_size
 
     def scheduler(self, L, n):
+      """
+      L : number of model blocks (or number of machines)
+      n : number of batches
+      dummy scheduler : [-1,0,1,2,3,....L] * Nbatches
+      -1 means that a new data is fed to the 0 machine
+      so this won't be actually asynchronized
+      """
       for n in range(n):
           for l in range(-1, L):
               yield l
 
     def train_1_epoch(self, dataloader, model, loss_fn):
         """train the data for 1 epoch"""
-        buffers = dict([ (i,{ 'data': [], 'counters': [0] }) for i in range(len(model))])
+        buffers = dict([ (i,{ 'data': [], 'counters': [] }) for i in range(len(model))])
         X, y = next(iter(dataloader))
         #buffers[1]['data'].append((X,y))
         device = next(model[0].parameters()).device
         schedule = self.scheduler(len(model), len(dataloader))
         for i, l in enumerate(schedule):
+            #print('iter',i,'layer',l)
             if i%100==0:
                 print(i,'iterations')
-            if l != -1:
+            if l == -1:
+                X, y = next(iter(dataloader))
+            else:
                 X, y = self.read_buffer(buffers[l])
                 X = X.to(device)
                 y = y.to(device)
                 X = self.train_1_batch(X, y, model[l], loss_fn)
-            else:
-                X, y = next(iter(dataloader))
             if l<len(model)-1:
+                # send the output X of the previous layer to the next machine
                 self.write_buffer(buffers[l+1], (X,y))
-
+            #import pdb; pdb.set_trace()
 
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
@@ -98,39 +107,44 @@ class LayerWiseOptimizer(GradientOptimizer):
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
         for i, layer in enumerate(model.layers):
             layer.weight.data -=  gg[2*i] * self.lr
-            if self.pruning_proba>0 and len(model.layers)<3: #quantile do not scale with alexnet
-                q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
-                bin_mat = torch.abs(layer.weight.data) > q1
-                bin_mat = bin_mat.to(device)
-                layer.weight.data = (bin_mat)*layer.weight.data
             layer.bias.data -=  gg[2*i+1] * self.lr
         return X
 
     def write_buffer(self, b, x):
         """
+        b buffer : a list of batches and counters
+        x : batch of data
         write data to the buffer
         Just append the data if the buffer is not full
         otherwise, replace the most used point
-        if there are several of them, remove with a first in first out scheme
+        if there are several of them, remove with a 'first in first out' scheme
         """
         if len(b['data']) < self.buffer_max_size:
             b['data'].append(x)
             b['counters'].append(0)
         else:
+            # select the batch which have been used the most (max counter)
+            # and among them the one which has been added the earliest to the
+            # buffer (min index)
             cmax = max(b['counters'])
             idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmax ])
+            # replace the selected old batch by the new batch
             b['counters'][idx] = 0
             b['data'][idx] = x
+            #print('replacing',idx)
 
     def read_buffer(self, b):
         """
-        get the least used buffer
-        if there are several of them, take the one with the closest index,
-        which corresponds to the first in first out scheme
+        get the least used minibatch
+        if there are several of them, take the oldest one in the buffer,
+        ie the one with the mininum index,
+        to be coherent with the 'first in first out' writing
         """
         cmin = min(b['counters'])
         idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmin ])
+        # recording that this batch has been used
         b['counters'][idx] += 1
+        #print('reading ',idx)
         return b['data'][idx]
 
 
@@ -242,11 +256,6 @@ class MCMCOptimizer(Optimizer):
         loss = loss_fn(pred,y).item()
         for i in range(self.iter_mcmc):
             # selecting a layer and a layer at random
-            get epsilon for each parameter
-            get ypred for each parameter change
-                it can be computed as a delta when compared to pred
-            get losses for all
-            
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
             params_line = self.selector.getParamLine(neighborhood, model)

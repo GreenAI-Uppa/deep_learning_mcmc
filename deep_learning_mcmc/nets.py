@@ -197,29 +197,6 @@ class ConvNet(nn.Module):
         x = self.fc1(x)
         return x
 
-"""
-maybe try
-# define cnn model
-def define_model():
-	model = Sequential()
-	model.add(Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same', input_shape=(32, 32, 3)))
-	model.add(Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(MaxPooling2D((2, 2)))
-	model.add(Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(MaxPooling2D((2, 2)))
-	model.add(Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same'))
-	model.add(MaxPooling2D((2, 2)))
-	model.add(Flatten())
-	model.add(Dense(128, activation='relu', kernel_initializer='he_uniform'))
-	model.add(Dense(10, activation='softmax'))
-	# compile model
-	opt = SGD(lr=0.001, momentum=0.9)
-	model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
-	return model
-"""
-
 class SmallbaselineCifar(nn.Module):
     def __init__(self):
         super().__init__()
@@ -246,6 +223,8 @@ class SmallbaselineCifar(nn.Module):
 class FCAuxResult(nn.Module):
     """
     This class is used for the layer wise optimization with a linear layer
+    The only difference is that you return the intermediate value in addition
+    to the output of the last layer in the forward pass
     """
     def __init__(self, sizes, binary_flag=False, activation=None, flatten=True):
         """
@@ -272,9 +251,15 @@ class FCAuxResult(nn.Module):
         self.dropout = nn.Dropout(p=0.2)
 
     def forward(self, x):
+        """
+        return
+            aux: for the evaluation of the auxiliary loss
+            z: the output of this block which will be fed to the next block
+        """
         if self.flatten:
             x = x.flatten(start_dim=1)
-        z = self.dropout(self.activation(self.fc1(x)))
+        #z = self.dropout(self.activation(self.fc1(x)))
+        z = self.activation(self.fc1(x))
         aux = self.fc2(z)
         return z, aux
 
