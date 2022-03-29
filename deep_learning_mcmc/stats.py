@@ -30,7 +30,6 @@ def build_sampler(config):
     else:
         raise RuntimeError("Found unknown sampler:" +selector_name+ " in the config. Please provide Student or BinarySampler")
 
-
 class SamplerList(object):
     def __init__(self, samplers, lambdas):
         self.samplers = samplers

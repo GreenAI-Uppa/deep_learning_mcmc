@@ -6,7 +6,51 @@ from abc import ABC, abstractmethod
 import torch.nn.functional as F
 
 
-class Conv2d4MCMC(nn.Conv2d):
+###################################################################
+"""
+Redefinition of layers
+they inherit from pytorch and functions are added to update and select
+neighborhoods
+
+def update():
+
+"""
+class MCMCLayer():
+    """
+    MCMCLayer interface
+    its functions should be added to classic pytorch layer
+    to support additional functions used by the MCMC optimizer
+    """
+    def update(self, neighborhood, proposal):
+        """
+        modify the parameters specified by the neighborhood with the proposal
+        something like
+        self.weights[neighborhood] += proposal
+        """
+        pass
+
+    def get_selected_size(self, idces):
+        """
+        get the size of the neighborhood
+        """
+        pass
+
+    def undo(self, neighborhood, proposal):
+        """
+        undo the changes of the update function
+        This is used when you reject the change in the metropollis Hasting
+        algorithm. Something like:
+        self.weights[neighborhood] -= proposal
+        """
+        pass
+
+    def getParamLine(self, idces):
+        """
+        return the parameter contained in the neighborhood as a 1D vector
+        """
+        pass
+
+class Conv2d4MCMC(nn.Conv2d, MCMCLayer):
     is_binary = False
     def update(self, neighborhood, proposal):
         idces_w, idces_b = neighborhood
@@ -48,7 +92,8 @@ class Conv2d4MCMC(nn.Conv2d):
         return idces_w
 
 
-class BinaryConv2d(Conv2d4MCMC):
+
+class BinaryConv2d(Conv2d4MCMC, MCMCLayer):
     is_binary = True
     def __init__(self, *args, **kwargs):
         super(BinaryConv2d, self).__init__(*args, **kwargs)
@@ -65,7 +110,7 @@ class BinaryConv2d(Conv2d4MCMC):
         self.update(neighborhood, proposal)
 
 
-class Linear4MCMC(nn.Linear):
+class Linear4MCMC(nn.Linear, MCMCLayer):
     is_binary = False
     def update(self, neighborhood, proposal):
         self.selected_size = -1
@@ -90,7 +135,7 @@ class Linear4MCMC(nn.Linear):
         b = self.bias.data[idces_b]
         return torch.cat((w,b))
 
-class BinaryLinear(Linear4MCMC):
+class BinaryLinear(Linear4MCMC, MCMCLayer):
     is_binary = True
     def __init__(self, input, output):
         super(BinaryLinear, self).__init__(input, output)
@@ -106,6 +151,9 @@ class BinaryLinear(Linear4MCMC):
         self.update(neighborhood, proposal)
 
 class MLP(nn.Module):
+    """
+    Constructs a Multi layer perceptron
+    """
     def __init__(self, sizes, binary_flags=None, activations=None):
         """
         builds a multi layer perceptron
