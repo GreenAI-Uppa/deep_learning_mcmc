@@ -34,7 +34,7 @@ The json configuration of the MCMC optimizer is organised as follows:
         "batch_size": 50000,
         "exp_name": "jmlr_mcmc",
         "architecture": {
-                "boolean_flags": [0,0],
+                "boolean_flags": [1,0],
                 "activations" : ["Sigmoid", "Softmax"],
                 "nb_filters" : 64
         },
@@ -44,19 +44,19 @@ The json configuration of the MCMC optimizer is organised as follows:
                 "selector" : {
                     "name": "Selector",
                     "layer_conf" : [
-                       {"layer_distr" :0.5, "get_idx":"get_idces_uniform_conv", "get_idx_param":200},
-                       {"layer_distr" :0.5, "get_idx":"get_idces_uniform_linear", "get_idx_param":200}]
+                       {"layer_distr" :0.5, "get_idx":"get_idces_filter_conv"},
+                       {"layer_distr" :0.5, "get_idx":"get_idces_uniform_linear", "get_idx_param":363}]
                 },
                 "samplers" : [
-                    {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000},
-                    {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000}
+                    {"sampler": {"name" : "BinarySampler"}, "prior" : {"name" : "BinarySampler"}, "lamb":1000},
+                    {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "", "variance": 0.001}, "lamb":100000}
                     ],
-                "iters":600,
+                "iters":60000,
                 "progressive_pruning": 0,
                 "pruning_level_start":0.1,
-                "pruning_schedule":[2,0.1]
+                "pruning_schedule":[6000,0.1]
         },
-        "naive_pruning_evaluation": 0,
+        "naive_pruning_evaluation": 1,
 	"measure_power":0
 }
 ```
@@ -65,7 +65,7 @@ The configuration file has 7 keys, described below:
 - "batch_size": size of a minibatch in the MCMC optimization. We strongly encourage to let batch_size = 50000 (the full training set) as mentionned in the paper. Reducing the batch size allows to have "iters" moves for each minibatch,
 - "exp_name": name of the json generated for your result,
 - "architecture": the main hyper-parameters of the network:
-  - "boolean_flags": list of 0 (continuous layer) or 1 (binary layer). Default is [0,0] for no binarization.
+  - "boolean_flags": list of 0 (continuous layer) or 1 (binary layer). Default is [1,0] to show the hybrid version.
   - "activations": activations used after the convolution layer, and the dense layer.
   - "nb_filters": number of filters of the convolution layer.
 - "variance_init": variance of the prior distribution at initialization of the continuous layers,
