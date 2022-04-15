@@ -1,7 +1,6 @@
 {
         "batch_size": 64,
-        "epochs": 100,
-        "exp_name": "binary_connect",
+        "exp_name": "jmlr_binaryConnect",
         "architecture": {
                 "boolean_flags": [1, 0],
                 "activations" : ["Sigmoid", "Softmax"],
@@ -9,8 +8,11 @@
         },
         "optimizer": {
                 "name": "binaryConnect",
-                "lr": 0.01
+                "lr": 0.01,
+                "iters": 20
         },
-        "dataset": "CIFAR"
+        "naive_pruning_evaluation": 1,
+        "measure_power":0
+
 }
 

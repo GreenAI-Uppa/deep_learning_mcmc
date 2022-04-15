@@ -105,43 +105,6 @@ class BinaryLinear(Linear4MCMC):
     def undo(self, neighborhood, proposal):
         self.update(neighborhood, proposal)
 
-class MLP(nn.Module):
-    def __init__(self, sizes, binary_flags=None, activations=None):
-        """
-        builds a multi layer perceptron
-        sizes : list of the size of the different layers
-        activations : can be a string or a list of string. see torch.nn for possible values (ReLU, Softmax,...)
-        """
-        if len(sizes)< 2:
-            raise Exception("sizes argument is" +  sizes.__str__() + ' . At least two elements are needed to have the input and output sizes')
-        super(MLP, self).__init__()
-        self.flatten = nn.Flatten()
-        input_size, output_size = sizes[0], sizes[-1]
-        self.layers = nn.ModuleList()
-        if binary_flags is None:
-            binary_flags = [False for i in range(1, len(sizes)) ]
-        self.activations = []
-        for i in range(len(sizes)-1):
-            if binary_flags[i]:
-                linear = BinaryLinear(sizes[i], sizes[i+1])
-            else:
-                linear = Linear4MCMC(sizes[i], sizes[i+1])
-            self.layers.append(linear)
-            if activations is None:
-                activation = nn.ReLU()
-            else:
-                activation = getattr(nn, activations[i])()
-            self.activations.append(activation)
-        activations[-1] = None # because the loss function contains its own activation
-
-    def forward(self, x):
-        x = self.flatten(x)
-        for linear, activation in zip(self.layers, self.activations):
-            x = linear(x)
-            if activation is not None:
-                x = activation(x)
-        return x
-
 class ConvNet(nn.Module):
     '''
     A simple ConvNet constructor
@@ -150,48 +113,36 @@ class ConvNet(nn.Module):
     binary_flags = list of 2 booleans to binarize the conv layer or the fc layer (1 = binarization)
     activations = list of activations by layer
     init_sparse = boolean (1 = Student heavy tailed initialization)
-    pruning_level = exact sparsity coefficient at init and for proposal epsilon or gradient steps
     '''
-    def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False, pruning_level=0):
+    def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False,pruning_level_start = 0):
         super(ConvNet, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
         self.init_sparse = init_sparse
+        self.pruning_level_start = pruning_level_start
         self.layers = nn.ModuleList()
-        self.pruning_level = pruning_level
         if binary_flags and binary_flags[0]:
-            if channels == 3:
-                self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
-            else:
-                self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
+            print('layer one binary')
+            self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
         else:
-            if channels == 3:
-                self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
-                if init_sparse:
-                    print('INIT SPARSE for CIFAR10')
-                    init_values = self.init_sparse.sample(n=nb_filters*channels*11*11)
-                    self.conv1.weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters,channels,11,11))
-                    q1 = torch.quantile(torch.flatten(torch.abs(self.conv1.weight.data)),self.pruning_level, dim=0)
-                    bin_mat = torch.abs(self.conv1.weight.data) > q1
-                    self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
-            else:
-                self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
-                if init_sparse:
-                    print('INIT SPARSE for MNIST')
-                    init_values = self.init_sparse.sample(n=nb_filters*7*7)
-                    self.conv1.weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters,channels,7,7))
-                    q1 = torch.quantile(torch.flatten(torch.abs(self.conv1.weight.data)),self.pruning_level, dim=0)
-                    bin_mat = torch.abs(self.conv1.weight.data) > q1
-                    self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
+            self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
+            if init_sparse:
+                print('INIT SPARSE for CIFAR10')
+                init_values = self.init_sparse.sample(n=nb_filters*channels*11*11)
+                self.conv1.weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters,channels,11,11))
+                q1 = torch.quantile(torch.flatten(torch.abs(self.conv1.weight.data)),self.pruning_level_start, dim=0)
+                bin_mat = torch.abs(self.conv1.weight.data) > q1
+                self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
         self.layers.append(self.conv1)
         if binary_flags and binary_flags[1]:
+            print('layer 2 binary')
             self.fc1 = BinaryLinear(self.nb_filters * 8 * 8, 10)
         else:
             self.fc1 = Linear4MCMC(self.nb_filters * 8 * 8, 10)
             if init_sparse:
                 init_values_fc = self.init_sparse.sample(n=10*self.nb_filters * 8 * 8)
                 self.fc1.weight.data = torch.tensor(init_values_fc.astype('float32')).reshape((10,self.nb_filters*8*8))
-                q1 = torch.quantile(torch.flatten(torch.abs(self.fc1.weight.data)),self.pruning_level, dim=0)
+                q1 = torch.quantile(torch.flatten(torch.abs(self.fc1.weight.data)),self.pruning_level_start, dim=0)
                 bin_mat = torch.abs(self.fc1.weight.data) > q1
                 self.fc1.weight.data = (bin_mat)*self.fc1.weight.data
         self.layers.append(self.fc1)
@@ -208,10 +159,10 @@ class ConvNet(nn.Module):
         return x
 
 class BinaryConnectConv(ConvNet):
-    def __init__(self,nb_filters,channels, binary_flags=[True, False], activations=None, init_sparse=False, pruning_level=0):
+    def __init__(self,nb_filters,channels, binary_flags=[True, False], activations=None, init_sparse=False):
 
         # building a non binary convnet first
-        super().__init__(nb_filters,channels, binary_flags=None, activations=activations, init_sparse=init_sparse, pruning_level=pruning_level)
+        super().__init__(nb_filters,channels, binary_flags=None, activations=activations, init_sparse=init_sparse)
         """copy the real layers and binarize the others accoding to the binary_flags"""
         if binary_flags is None:
             raise Exception("binary_flags is None, it doesn't make sense to use BinaryConnect without binary_layers. Please set, for instance, binary_flags=[True, False] ")
@@ -242,9 +193,8 @@ class AlexNet(nn.Module):
     binary_flags = list of boolean to binarize layers (1 = binarization)
     activations = list of activations by layer
     init_sparse = boolean (1 = Student heavy tailed initialization)
-    pruning_level = exact sparsity coefficient at init and for proposal epsilon or gradient steps
     '''
-    def __init__(self,nb_filters,channels, kernel_sizes, strides, paddings, binary_flags=None, activations=None, init_sparse=False, pruning_level=0):
+    def __init__(self,nb_filters,channels, kernel_sizes, strides, paddings, binary_flags=None, activations=None, init_sparse=False,pruning_level_start=0):
         super(AlexNet, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
@@ -253,7 +203,6 @@ class AlexNet(nn.Module):
         self.paddings = paddings
         self.init_sparse = init_sparse
         self.layers = nn.ModuleList()
-        self.pruning_level = pruning_level
         #conv layers constructor
         in_channels = [channels]
         for k,binary_flag in enumerate(binary_flags[:5]):
@@ -268,7 +217,7 @@ class AlexNet(nn.Module):
                     self.layers[k].weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters[k],in_channels[k],kernel_sizes[k],kernel_sizes[k]))
                     '''
                     exact sparsity impossible: quantile function do not "scale" to alexnet :)
-                    q1 = torch.quantile(torch.flatten(torch.abs(self.layers[k].weight.data)),self.pruning_level, dim=0)
+                    q1 = torch.quantile(torch.flatten(torch.abs(self.layers[k].weight.data)),self.pruning_level_start, dim=0)
                     bin_mat = torch.abs(self.layers[k].weight.data) > q1
                     self.layers[k].weight.data = (bin_mat)*self.layers[k].weight.data
                     '''
@@ -343,9 +292,9 @@ def evaluate(dataloader, model, loss_fn):
 
 def evaluate_sparse(dataloader, model, loss_fn, proba,boolean_flags,fc=True):
     """
-    evaluate a sparse version of a linear model
+    evaluate a naive sparse version of a linear model
     dataloader, model, and loss_fn : see evaluate function
-    threshold : values of the threshold in the weights matrix associated to the first layer of the MLP (not apply to the bias term)
+    threshold : values of the threshold in the weights matrix (naive sparsity)
     Return loss, acccuracy and the percentage of values kept after threshold in the first layer
     """
     device = next(model.parameters()).device

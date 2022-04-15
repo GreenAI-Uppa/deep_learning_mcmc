@@ -1,17 +1,19 @@
 {
-  "batch_size": 64,
-  "epochs": 10,
-  "exp_name": "test",
+  "batch_size": 256,
+  "exp_name": "jmlr_gradient",
   "optimizer": {
 	  "name":"grad",
 	  "lr": 0.001,
-    "pruning_level": 0
+    "iters":60000,
+    "progressive_pruning": 0,
+    "pruning_level_start":0.1,
+    "pruning_schedule":[15,0.1]
   },
-  "dataset": "CIFAR10",
   "architecture":{
     "activations" : ["ReLU","Softmax"],
 	  "nb_filters": 64
   },
+  "naive_pruning_evaluation": 0,
   "measure_power" : 0
 }
 
