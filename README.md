@@ -1,7 +1,7 @@
 # Deep learning by MCMC - PAC-Bayesian Sparse and Binary CNNs
 
 
-This branch is an illustration of the paper "PAC-Bayesian Sparse and Binary CNNs" submitted to the Journal of Machine Learning Research".
+This branch is an illustration of the paper "PAC-Bayesian Sparse and Binary CNNs" submitted to the *Journal of Machine Learning Research*.
 
 It is a small part of our research activity dedicated to the optimization of neural networks with Markov Chain Monte Carlo.
 
