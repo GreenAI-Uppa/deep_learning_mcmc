@@ -23,7 +23,7 @@ class Optimizer(ABC):
         """
         self.data_points_max = data_points_max
 
-    def train_1_epoch(self, dataloader, model, loss_fn):
+    def train(self, dataloader, model, loss_fn):
         """train the data for 1 epoch"""
         num_items_read = 0
         # attempting to guess the device on the model.
@@ -43,33 +43,32 @@ class Optimizer(ABC):
         """abtract method to train a batch of data"""
 
 class GradientOptimizer(Optimizer):
-    """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
-    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_level=0):
+    """Stochastic Gradient optimizer, no adaptative learning rate"""
+    def __init__(self, data_points_max = 1000000000, lr=0.001):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
-        self.pruning_level = pruning_level
-        #self.current_batch = 0
 
 
-    def train_1_epoch(self, dataloader, model, loss_fn,path):
+    def train(self, dataloader, model, loss_fn, iters, progressive_pruning, pruning_level_start, pruning_schedule, path, verbose=False):
 
         """train the data for 1 epoch"""
         num_items_read = 0
         # attempting to guess the device on the model.
         device = next(model.parameters()).device
-        if self.pruning_level>0:
+        if progressive_pruning == 1:
+            Pruner = pruning.MozerPruner()
             test_data = datasets.CIFAR10(root=path,
             train=False,
             download=True,
             transform=ToTensor())
             pruning_dataloader = DataLoader(test_data, batch_size=256, num_workers=8)
+            current_pruning_level = pruning_level_start
         liste = []
         for elt in dataloader:
             liste.append(elt)
-        current_pruning_level = self.pruning_level
         res = {}
-        Pruner = pruning.MozerPruner()
-        for i in range(200000):
+        total_gain = 0
+        for i in range(iters):
             """
             if i <= self.current_batch:
                 continue
@@ -86,8 +85,9 @@ class GradientOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            self.train_1_batch(X, y, model, loss_fn)
-            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 2000 gradient step
+            gain = self.train_1_batch(X, y, model, loss_fn, verbose)
+            total_gain += gain
+            if i>0 and progressive_pruning ==1 and i%pruning_schedule[0] == 0:#skeletonize any 2000 gradient step
                 acc_before = nets.evaluate(pruning_dataloader,model,loss_fn)
                 l0_before = torch.nonzero(model.fc1.weight.data).shape[0]+torch.nonzero(model.conv1.weight.data).shape[0]
                 #print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
@@ -95,14 +95,14 @@ class GradientOptimizer(Optimizer):
                 Pruner.skeletonize(model,current_pruning_level,dataloader)
                 acc_after = nets.evaluate(pruning_dataloader,model,loss_fn)
                 l0_after = torch.nonzero(model.fc1.weight.data).shape[0]+torch.nonzero(model.conv1.weight.data).shape[0]
-                if i%2000 == 0:
-                    res[i]={'pruning_level':current_pruning_level,'acc_before':acc_before,'acc_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
-                    print('iteration',i,':','pruning level',current_pruning_level)
-                    print('perf before skeletonization',acc_before,'l0 norm',l0_before,'perf after',acc_after,'l0 norm',l0_after)
-                    current_pruning_level += 0.01
-
-        with open('ICML/64_gradient_newfreq.json','w') as outputfile:
-            json.dump(res,outputfile)
+                res[i]={'pruning_level':current_pruning_level,'perf_before':acc_before,'perf_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
+                print('iteration',i,':','pruning level',current_pruning_level)
+                print('perf before skeletonization',acc_before,'l0 norm',l0_before,'perf after',acc_after,'l0 norm',l0_after)
+                current_pruning_level += pruning_schedule[1]
+            if verbose:
+                print('gain in loss',gain)
+        print('total gain in loss', total_gain)
+        return res
         """
         if len(dataloader) - 1 <= i:
             i = 0
@@ -110,7 +110,7 @@ class GradientOptimizer(Optimizer):
         print("current batch:", self.current_batch, i, len(dataloader))
         """
 
-    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss(),verbose=False):
         """
         SGD optimization
         """
@@ -121,21 +121,30 @@ class GradientOptimizer(Optimizer):
         for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
             layer.weight.data -=  gg[2*i] * self.lr
             layer.bias.data -=  gg[2*i+1] * self.lr
+        pred = model(X)
+        gain = los - loss_fn(pred, y)
+        if verbose:
+            print('loss improvement',gain.item())
+        return(gain.item())
 
 class BinaryConnectOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
-    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_level=0):
+    def __init__(self, data_points_max = 1000000000, lr=0.001):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
-        self.pruning_level = pruning_level
         #self.current_batch = 0
 
-    def train_1_epoch(self, dataloader, model, loss_fn):
-        """train the data for 1 epoch"""
+    def train(self, dataloader, model, loss_fn, iters,verbose=False):
+        """train the data"""
         num_items_read = 0
         # attempting to guess the device on the model.
         device = next(model.parameters()).device
-        for i, (X, y) in enumerate(dataloader):
+        liste = []
+        for elt in dataloader:
+            liste.append(elt)
+        res = {}
+        total_gain = 0
+        for i in range(iters):
             """
             if i <= self.current_batch:
                 continue
@@ -143,6 +152,8 @@ class BinaryConnectOptimizer(Optimizer):
                 break
             print("passing")
             """
+            k = random.choice(range(len(dataloader)))
+            (X,y) = liste[k]
             if self.data_points_max <= num_items_read:
                 break
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
@@ -150,7 +161,10 @@ class BinaryConnectOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            self.train_1_batch(X, y, model, loss_fn)
+            gain = self.train_1_batch(X, y, model, loss_fn, verbose)
+            total_gain += gain
+        print('total gain in loss', total_gain)
+        return res
         """
         if len(dataloader) - 1 <= i:
             i = 0
@@ -158,7 +172,7 @@ class BinaryConnectOptimizer(Optimizer):
         print("current batch:", self.current_batch, i, len(dataloader))
         """
 
-    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss(),verbose=False):
         """
         SGD optimization
         """
@@ -181,11 +195,16 @@ class BinaryConnectOptimizer(Optimizer):
                 # clip the real value of the weights
                 torch.clip(real_layer[0],-1,1, out=real_layer[0])
                 torch.clip(real_layer[1],-1,1, out=real_layer[1])
+        pred = model(X)
+        gain = los - loss_fn(pred, y)
+        if verbose:
+            print('loss improvement',gain.item())
+        return(gain.item())
 
 
 
 class MCMCOptimizer(Optimizer):
-    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None, pruning_level=0):
+    def __init__(self, sampler, data_points_max = 1000000000, lamb=1000,  prior=None, selector=None):
         """
         variance_prop : zero centered univariate student law class to generate the proposals
         variance_prior : zero centered univariate student law class used as a prior on the parameter values
@@ -193,19 +212,17 @@ class MCMCOptimizer(Optimizer):
         iter_mcmc : number of mcmc iterations
         """
         super().__init__(data_points_max = 1000000000)
-        self.iter_mcmc = iter_mcmc
         self.lamb = lamb
         self.sampler = sampler
-        self.pruning_level = pruning_level
         if prior is None:
             self.prior = self.sampler
         else:
             self.prior = prior
         self.selector = selector
 
-    def train_1_epoch(self, dataloader, model, loss_fn, path, verbose=False):
+    def train(self, dataloader, model, loss_fn, iters, progressive_pruning, pruning_level_start, pruning_schedule, path, verbose=False):
         """
-        train for 1 epoch and collect the acceptance ratio
+        train and collect the acceptance ratio
         """
         num_items_read = 0
         acceptance_ratio = Acceptance_ratio()
@@ -218,10 +235,11 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptance_ratio += self.train_1_batch(X, y, model, dataloader, loss_fn=torch.nn.CrossEntropyLoss(), path=path, verbose=verbose)
-        return acceptance_ratio
+            acceptance_ratio, res = self.train_1_batch(X, y, model, dataloader, loss_fn, iters, progressive_pruning, pruning_level_start, pruning_schedule, path=path, verbose=verbose)  
+            acceptance_ratio += acceptance_ratio
+        return acceptance_ratio, res
 
-    def train_1_batch(self, X, y, model, dataloader, loss_fn, path, verbose=False):
+    def train_1_batch(self, X, y, model, dataloader, loss_fn, iters, progressive_pruning, pruning_level_start, pruning_schedule, path, verbose=False):
         """
         perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
 
@@ -242,7 +260,8 @@ class MCMCOptimizer(Optimizer):
         ar = Acceptance_ratio()
         pred = model(X)
         loss = loss_fn(pred,y).item()
-        if self.pruning_level>0:
+        res = {}
+        if progressive_pruning == 1:
             Pruner = pruning.MCMCPruner()
             relevance_dict = {}
             for cle in range(model.conv1.weight.data.shape[0]):
@@ -250,19 +269,18 @@ class MCMCOptimizer(Optimizer):
             relevance_dict_linear_layer_w = torch.zeros(model.fc1.weight.data.shape)
             relevance_dict_linear_layer_b = torch.zeros(model.fc1.bias.data.shape[0],1)
             relevance_dict_linear_layer = {'weight':relevance_dict_linear_layer_w, 'bias':relevance_dict_linear_layer_b}
-
             test_data = datasets.CIFAR10(root=path,
             train=False,
             download=True,
             transform=ToTensor())
             test_dataloader = DataLoader(test_data, batch_size=256, num_workers=16)
             loss_fn = torch.nn.CrossEntropyLoss()
-        current_pruning_level = self.pruning_level
-        res = {}
-        for i in range(self.iter_mcmc):
+            current_pruning_level = pruning_level_start
+        total_gain = 0
+        for i in range(iters):
             #if i>100 and i%200 == 0 and self.pruning_level>0:
             #    print('iteration',i,sorted([(cle,relevance_dict[cle]) for cle in range(model.conv1.weight.data.shape[0]) if relevance_dict[cle]>0],key=lambda tup: tup[1],reverse=True)[:15])
-            if i>0 and self.pruning_level>0 and i%2000 == 0:#skeletonize iteration
+            if i>0 and progressive_pruning ==1 and i%pruning_schedule[0] == 0:#skeletonize iteration
                 acc_before = nets.evaluate(test_dataloader,model,loss_fn)
                 l0_before = torch.nonzero(model.conv1.weight.data).shape[0]+torch.nonzero(model.fc1.weight.data).shape[0]
                 #print('iteration',i,':','pruning level',current_pruning_level,'| Performances before skeletonization',acc_before,'l0 norm',l0_before)
@@ -271,13 +289,11 @@ class MCMCOptimizer(Optimizer):
                 acc_after = nets.evaluate(test_dataloader,model,loss_fn)
                 l0_after = torch.nonzero(model.conv1.weight.data).shape[0]+torch.nonzero(model.fc1.weight.data).shape[0]
                 loss = loss_fn(model(X),y)#update loss as new init to metropolis hasting
-                print(i,end='|')
                 #print('Performances after skeletonization',acc_after,'l0 norm',l0_after)
-                if i%2000 == 0:
-                    res[i]={'pruning_level':current_pruning_level,'acc_before':acc_before,'acc_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
-                    print(i,'pruning level',current_pruning_level,'---')
-                    print('perf before skeletonization',acc_before,'l0 norm',l0_before,'perf after',acc_after,'l0 norm',l0_after)
-                    current_pruning_level += 0.01
+                res[i]={'pruning_level':current_pruning_level,'perf_before':acc_before,'perf_after':acc_after,'l0_before':l0_before,'l0_after':l0_after}
+                print(i,'pruning level',current_pruning_level,'---')
+                print('perf before skeletonization',acc_before,'l0 norm',l0_before,'perf after',acc_after,'l0 norm',l0_after)
+                current_pruning_level += pruning_schedule[1]
                 #print('update pruning level to',current_pruning_level)
             # selecting a layer and weights at random
             layer_idx, idces = self.selector.get_neighborhood(model)
@@ -298,8 +314,11 @@ class MCMCOptimizer(Optimizer):
             data_term = torch.exp(lamb * (loss -loss_prop))
 
             rho  = min(1, data_term * student_ratio)
+            gain = loss-loss_prop    
             if verbose:
-                print(i,'moove layer',layer_idx,'rho=',float(rho),'data term=',float(data_term),'ratio=',float(student_ratio),'| ','loss_prop',float(loss_prop),'loss gain',float(loss-loss_prop))
+                #print(i,'moove layer',layer_idx,'rho=',float(rho),'data term=',float(data_term),'ratio=',float(student_ratio),'| ','loss improvement',float(loss_prop),'loss gain',float(loss-loss_prop))
+                print(i,'loss improvement',gain.item(),'moove layer',layer_idx,'rho=',float(rho),end=" ")
+        
             key = self.selector.get_proposal_as_string(neighborhood)
             ar.incr_prop_count(key) # recording so that we can later compute the acceptance ratio
             if rho > torch.rand(1).to(device):
@@ -307,26 +326,25 @@ class MCMCOptimizer(Optimizer):
                 ar.incr_acc_count(key)
                 loss = loss_prop
                 decision = 'accepted'
-                if layer_idx == 0 and self.pruning_level>0:
+                total_gain += gain.item()
+                if layer_idx == 0 and progressive_pruning == 1:
                     relevance_dict[int(idces[0][0][0])]+=1
-                if layer_idx == 1 and self.pruning_level>0:
+                if layer_idx == 1 and progressive_pruning == 1:
                     relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] +=1
                     relevance_dict_linear_layer['bias'][idces[1]] +=1
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
                 decision = 'rejected'
-                if layer_idx == 0 and self.pruning_level>0:
+                if layer_idx == 0 and progressive_pruning == 1:
                     relevance_dict[int(idces[0][0][0])]-=1
-                if layer_idx == 1 and self.pruning_level>0:
+                if layer_idx == 1 and progressive_pruning == 1:
                     relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] -=1
                     relevance_dict_linear_layer['bias'][idces[1]] -=1
             if verbose:
                 print('moove',decision)
-        with open('ICML/64_mcmc_rejectintheloop.json', 'w') as outfile:
-            json.dump(res, outfile)
-        return ar
-
+        print('total gain',total_gain)
+        return ar, res
 
 class Acceptance_ratio():
     """
