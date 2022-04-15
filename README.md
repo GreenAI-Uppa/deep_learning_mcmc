@@ -16,7 +16,7 @@ python setup.py install
 
 ## usage
 
-Test a learning process of a two-layer CNN on cifar-10 with mcmc (run --help for additional arguments)
+Test a learning process of a two-layer CNN (one convolution layer of 11*11*3 filters and one dense layer) on cifar-10 with mcmc (run --help for additional arguments)
 
 ```
 python run_jmlr.py --config_file configs/config_mcmc_conv_cnn.json --data_folder /data/pytorch_cifar10/ --verbose
@@ -79,3 +79,5 @@ The configuration file has 7 keys, described below:
   - "pruning_schedule": if progressive_pruning is 1, [int,level] where int is the period to prune the network (condition iters%int in the loop) and level is the amount of pruning level to add at each period int.
 - "naive_pruning_evaluation: if 1, run_jmlr.py computes and returns test accuracies for different level of naive pruning, after training (Section 5.1 of the paper).
 - "measure_power": if 1, strongly depends on our repo [AIPowerMeter](https://github.com/GreenAI-Uppa/AIPowerMeter) and return the power draws of the training process based on rapl and nvidia-smi.
+
+The json configuration of the standard SGD is more classical, since the optimizer has just a learning rate and a mini-batch size. Note that in the progressive pruning setting, we use Mozer pruning (see the reference in the paper) with particular schedule described above.
