@@ -29,6 +29,7 @@ Three files are available corresponding to three different optimizer: vanilla gr
 
 The json configuration of the MCMC optimizer is organised as follows:
 
+```json
 {
         "batch_size": 50000,
         "exp_name": "jmlr_mcmc",
@@ -58,8 +59,9 @@ The json configuration of the MCMC optimizer is organised as follows:
         "naive_pruning_evaluation": 0,
 	"measure_power":0
 }
+```
 
-The configurationffile has 7 keys, described below:
+The configuration file has 7 keys, described below:
 - "batch_size": size of a minibatch in the MCMC optimization. We strongly encourage to let batch_size = 50000 (the full training set) as mentionned in the paper. Reducing the batch size allows to have "iters" moves for each minibatch,
 - "exp_name": name of the json generated for your result,
 - "architecture": the main hyper-parameters of the network:
@@ -76,4 +78,4 @@ The configurationffile has 7 keys, described below:
   - "pruning_level_start": level of pruning at the first iteration if progressive_pruning is 1.
   - "pruning_schedule": if progressive_pruning is 1, [int,level] where int is the period to prune the network (condition iters%int in the loop) and level is the amount of pruning level to add at each period int.
 - "naive_pruning_evaluation: if 1, run_jmlr.py computes and returns test accuracies for different level of naive pruning, after training (Section 5.1 of the paper).
-- "measure_power": if 1, strongly depends on AIPowerMeter[https://github.com/GreenAI-Uppa/AIPowerMeter] and return the power draws of the training process based on rapl and nvidia-smi.
+- "measure_power": if 1, strongly depends on our repo [AIPowerMeter](https://github.com/GreenAI-Uppa/AIPowerMeter) and return the power draws of the training process based on rapl and nvidia-smi.
