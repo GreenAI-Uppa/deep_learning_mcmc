@@ -3,6 +3,8 @@ to train the network"""
 import collections
 from abc import ABC, abstractmethod
 import torch
+import time
+import deep_learning_mcmc.evaluator as evaluator
 
 class Optimizer(ABC):
     """Generic optimizer interface"""
@@ -77,16 +79,19 @@ class LayerWiseOptimizer(GradientOptimizer):
     def train_1_epoch(self, dataloader, model, loss_fn):
         """train the data for 1 epoch"""
         buffers = dict([ (i,{ 'data': [], 'counters': [] }) for i in range(len(model))])
-        X, y = next(iter(dataloader))
+        iterDataloader = iter(dataloader)
+        X, y = next(iterDataloader)
         #buffers[1]['data'].append((X,y))
         device = next(model[0].parameters()).device
-        schedule = self.scheduler(len(model), len(dataloader))
+        schedule = self.scheduler(len(model), len(dataloader)-1)
+        r=0
+        print("dataloader", len(dataloader))
         for i, l in enumerate(schedule):
-            #print('iter',i,'layer',l)
+            # print('iter',i,'layer',l)
             if i%100==0:
                 print(i,'iterations')
             if l == -1:
-                X, y = next(iter(dataloader))
+                X, y = next(iterDataloader)
             else:
                 X, y = self.read_buffer(buffers[l])
                 X = X.to(device)
@@ -147,6 +152,152 @@ class LayerWiseOptimizer(GradientOptimizer):
         #print('reading ',idx)
         return b['data'][idx]
 
+class LayerWiseAsyncOptimizer(GradientOptimizer):
+    """Layer wise training with gradient optimizer"""
+    def __init__(self, buffer_max_size=30, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
+        super().__init__(data_points_max = data_points_max, lr=lr, pruning_proba=pruning_proba)
+        self.buffer_max_size = buffer_max_size
+
+    def train_async(self, trainDataloader,testDataloader, model, loss_fn, nepochs):
+        print("dataloader", len(trainDataloader))
+
+        start_all = time.time()
+        nepochs = nepochs-1
+        n_cnn = len(model)
+        layer_noise = 3
+        noise = 0.1
+        #Declarations
+        to_train = True
+        first_iter = True
+        counter_first_iter = 0
+        iteration_tracker = [0]*n_cnn
+        epoch_tracker = [-1]*n_cnn
+        epoch_finished = [False for _ in range(n_cnn)]
+        n_layer = 0
+        continue_to_train = [True] * n_cnn
+        
+
+        device = next(model[0].parameters()).device
+        iterDataloader = iter(trainDataloader)
+        num_batch = len(trainDataloader)
+        print(num_batch)
+        # scheduler pour selectionner le worker
+        proba = torch.ones(n_cnn).float()
+        proba[layer_noise]=proba[layer_noise]-noise
+        proba = proba*1.0/proba.sum()
+        schedule = torch.distributions.categorical.Categorical(probs=proba)
+
+        #init buffers
+        buffers = dict([ (i,{ 'data': [], 'counters': [] }) for i in range(len(model))])
+        print(nepochs)
+        while to_train: #start training
+            if first_iter:
+                n_layer = counter_first_iter//2
+                if(counter_first_iter>2*(n_cnn-1)):
+                    first_iter = False
+                counter_first_iter += 1
+            else:
+                n_layer = schedule.sample().item()
+
+            if epoch_finished[n_layer]:
+                epoch_tracker[n_layer] = epoch_tracker[n_layer] + 1
+                print("Epoch Tracker: ")
+                print(*epoch_tracker)
+                if n_layer==len(model)-1:
+                    print(f"Training Epoch {epoch_tracker[n_layer]}\n----- = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
+                    loss, accuracy = evaluator.evaluateLayerWise(trainDataloader, model, loss_fn)
+                    for l in loss:
+                        acc = accuracy[l]
+                        los = loss[l]
+                        print(f"Training Error: Layer {n_layer} \n Accuracy: {(100*acc):>0.1f}%, Avg loss: {los:>8f} \n")
+
+            if all(e==False for e in continue_to_train):
+                to_train = False
+            
+            if epoch_tracker[n_layer]>=nepochs:
+                continue_to_train[n_layer] = False
+                if n_layer!=layer_noise:
+                    proba[n_layer] = 0
+                    proba = proba*1.0/proba.sum()
+                    schedule = torch.distributions.categorical.Categorical(probs=proba)
+            epoch_finished[n_layer]= False
+
+            if n_layer == 0:
+                try:
+                    X,y = next(iterDataloader)
+                    X = X.to(device)
+                    y = y.to(device)
+                except StopIteration:
+                    iterDataloader = iter(trainDataloader)
+                    X,y = next(iterDataloader)
+                    X = X.to(device)
+                    y = y.to(device)
+            else:
+                sample = self.read_buffer(buffers[n_layer-1])
+                if sample is not None:
+                    X, y = sample
+                    X = X.to(device)
+                    y = y.to(device)
+                else:
+                    print(f"Experiencing buffer overuse in layer {n_layer}, not processing")
+                    X = None
+            iteration_tracker[n_layer] = (iteration_tracker[n_layer] + 1) % num_batch
+            if iteration_tracker[n_layer] == 0:
+                epoch_finished[n_layer]=True
+            if X is not None:
+                if continue_to_train[n_layer]:
+                    X = self.train_1_batch(X, y, model[n_layer], loss_fn)
+                    if (n_layer<n_cnn-1):
+                        self.write_buffer(buffers[n_layer], (X,y))
+                                            
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
+        """
+        SGD optimization, and returns the output of the conv layer
+        """
+        X, pred = model(X)
+        los = loss_fn(pred, y)
+        gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
+        for i, layer in enumerate(model.layers):
+            layer.weight.data -=  gg[2*i] * self.lr
+            layer.bias.data -=  gg[2*i+1] * self.lr
+        return X
+
+    def write_buffer(self, b, x):
+        """
+        b buffer : a list of batches and counters
+        x : batch of data
+        write data to the buffer
+        Just append the data if the buffer is not full
+        otherwise, replace the most used point
+        if there are several of them, remove with a 'first in first out' scheme
+        """
+        if len(b['data']) < self.buffer_max_size:
+            b['data'].append(x)
+            b['counters'].append(0)
+        else:
+            # select the batch which have been used the most (max counter)
+            # and among them the one which has been added the earliest to the
+            # buffer (min index)
+            cmax = max(b['counters'])
+            idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmax ])
+            # replace the selected old batch by the new batch
+            b['counters'][idx] = 0
+            b['data'][idx] = x
+            #print('replacing',idx)
+
+    def read_buffer(self, b):
+        """
+        get the least used minibatch
+        if there are several of them, take the oldest one in the buffer,
+        ie the one with the mininum index,
+        to be coherent with the 'first in first out' writing
+        """
+        cmin = min(b['counters'])
+        idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmin ])
+        # recording that this batch has been used
+        b['counters'][idx] += 1
+        #print('reading ',idx)
+        return b['data'][idx]
 
 class BinaryConnectOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
@@ -344,3 +495,5 @@ class Acceptance_ratio():
         for k, v in self.proposal_count.items():
             result.append(k + ": " + str(self.proposal_accepted[k]/v))
         return '\n'.join(result)
+
+
