@@ -69,17 +69,16 @@ def get_idces_filter_conv():
         return idces_w, idx_filter
     return get_idx
 
-# TODO number of nb_filters
-
-
 def get_idces_uniform_conv(neighborhood_size):
     """
-    select neighborhood_size weights from a conv layer according to a uniform law
+    select neighborhood_size weights from a conv layer according to an uniform law
     """
     def get_idx(layer):
         n_filter, channels, k1, k2 = layer.weight.data.shape
+        # select a filter
         idx_filter = torch.randint(0, n_filter, (1,))
         filter_idces = layer.get_idx_flattened_1_filter(idx_filter)
+        # select neighborhood_size parameters on this filter 
         f_size = filter_idces.shape[0]
         if neighborhood_size > f_size:
             raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(f_size)+"\n neighborhood_size should be lower than this number")

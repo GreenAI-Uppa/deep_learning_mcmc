@@ -252,6 +252,7 @@ class MCMCOptimizer(Optimizer):
         """
         device = next(model.parameters()).device
         ar = Acceptance_ratio()
+        
         pred = model(X)
         loss = loss_fn(pred,y).item()
         for i in range(self.iter_mcmc):
