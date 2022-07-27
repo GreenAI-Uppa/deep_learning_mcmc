@@ -161,6 +161,75 @@ if params['measure_power']:
     exp = experiment.Experiment(driver,model=model,input_size=input_image_size)
     p, q = exp.measure_yourself(period=2)
 model = model.to(device)
+# convert torch model to keras model
+from pytorch2keras import pytorch_to_keras
+from torch.autograd import Variable
+import larq_compute_engine as lce
+import larq as lq
+
+from torchinfo import summary
+import tensorflow as tf
+# we should specify shape of the input tensor
+# from 50000, 3,32 32 to 64,3,11,11)
+input_np = np.random.uniform(0, 1, (1, 3, 32, 32))
+input_var = Variable(torch.FloatTensor(input_np))
+k_model = pytorch_to_keras(model, input_var,[(3, None, None,)], verbose=True)  
+torch.save(model, 'model.pt')
+k_model.save('k_model.h5')
+print(summary(model))
+print(k_model.summary())
+print(k_model.get_layer(index=1).get_weights())
+print(k_model.get_layer(index=1).input_shape)
+weights_initializer=k_model.get_layer(index=1).kernel_initializer
+bias_initializer = k_model.get_layer(index=1).bias_initializer
+config = k_model.get_layer(index=1).get_config()
+print("################## config #####################")
+print(config)
+layerconv = lq.layers.QuantConv2D(64, kernel_size=config['kernel_size'],
+                                kernel_quantizer="ste_sign",
+                                kernel_constraint="weight_clip",
+                                data_format='channels_first',
+                                activation = 'linear',
+                                kernel_initializer = tf.keras.initializers.zeros(),
+                                bias_initializer=tf.keras.initializers.zeros(),
+                                #use_bias=False,
+                                strides=3,
+                                input_shape=(3, None, None)
+                                )
+
+print(layerconv.weights)
+#layerconv.set_weights(k_model.get_layer(index=1).get_weights())
+
+model_larq = tf.keras.models.Sequential()
+print(k_model.get_layer(index=0))
+model_larq.add(k_model.get_layer(index=0))
+#print(k_model.get_layer(index=0).output_shape)
+
+model_larq.add(layerconv)
+#print("Before update weights")
+#print(model_larq.get_layer(index=0).weights)
+layerconv.set_weights(k_model.get_layer(index=1).get_weights())
+#print("After update weights")
+#print(model_larq.get_layer(index=0).weights)
+model_larq.add(k_model.get_layer(index=2))
+model_larq.add(k_model.get_layer(index=3))
+model_larq.add(k_model.get_layer(index=4))
+model_larq.save('larq_model.h5')
+print("summary model")
+print(model_larq.summary())
+# pour modifer les poids du modèle tfile
+#input_wt = tf.keras.layers.Input(shape=(1, 3, 200), dtype=tf.float32)
+#input_data = tf.keras.layers.Input(shape=(64, 64, 3,), dtype=tf.float32)
+
+with open("BinaryMcmc.tflite", "wb") as flatbuffer_file:
+    flatbuffer_bytes = lce.convert_keras_model(model_larq)
+    flatbuffer_file.write(flatbuffer_bytes)
+#print("Interpreter")
+
+
+
+
+
 training_time = 0
 eval_time = 0
 start_all = time.time()
@@ -175,9 +244,10 @@ for t in range(epochs):
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
     if use_gradient:
-        optimizer.train_1_epoch(train_dataloader, model, loss_fn)
+        print("0K use gradient")
+        optimizer.train_1_epoch(train_dataloader, model,k_model, flatbuffer_bytes,loss_fn)
     else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=params['verbose'])
+        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model,k_model,flatbuffer_bytes, loss_fn, verbose=params['verbose'])
     result = {"epoch":t}
     end_epoch = time.time()
     training_time += time.time() - start_epoch
