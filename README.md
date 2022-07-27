@@ -17,7 +17,7 @@ python setup.py install
 Train the model on cifar-10 with mcmc (run --help for additional arguments)
 
 ```
-python run_conv.py --config_file configs/config_mcmc_conv_real.json --data_folder /home/paul/data/pytorch_cifar10/ --verbose
+python3 run_conv.py --data_folder ./pytorch_cifar10/ --config_file configs/config_mcmc_conv_mixed.json --verbose
 ```
 This command will generate a json file containing the loss and the accuracy for the different epochs. 
 
