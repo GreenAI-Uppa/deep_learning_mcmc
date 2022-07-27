@@ -6,7 +6,51 @@ from abc import ABC, abstractmethod
 import torch.nn.functional as F
 
 
-class Conv2d4MCMC(nn.Conv2d):
+###################################################################
+"""
+Redefinition of layers
+they inherit from pytorch and functions are added to update and select
+neighborhoods
+
+def update():
+
+"""
+class MCMCLayer():
+    """
+    MCMCLayer interface
+    its functions should be added to classic pytorch layer
+    to support additional functions used by the MCMC optimizer
+    """
+    def update(self, neighborhood, proposal):
+        """
+        modify the parameters specified by the neighborhood with the proposal
+        something like
+        self.weights[neighborhood] += proposal
+        """
+        pass
+
+    def get_selected_size(self, idces):
+        """
+        get the size of the neighborhood
+        """
+        pass
+
+    def undo(self, neighborhood, proposal):
+        """
+        undo the changes of the update function
+        This is used when you reject the change in the metropollis Hasting
+        algorithm. Something like:
+        self.weights[neighborhood] -= proposal
+        """
+        pass
+
+    def getParamLine(self, idces):
+        """
+        return the parameter contained in the neighborhood as a 1D vector
+        """
+        pass
+
+class Conv2d4MCMC(nn.Conv2d, MCMCLayer):
     is_binary = False
     def update(self, neighborhood, proposal):
         idces_w, idces_b = neighborhood
@@ -48,7 +92,8 @@ class Conv2d4MCMC(nn.Conv2d):
         return idces_w
 
 
-class BinaryConv2d(Conv2d4MCMC):
+
+class BinaryConv2d(Conv2d4MCMC, MCMCLayer):
     is_binary = True
     def __init__(self, *args, **kwargs):
         super(BinaryConv2d, self).__init__(*args, **kwargs)
@@ -65,7 +110,7 @@ class BinaryConv2d(Conv2d4MCMC):
         self.update(neighborhood, proposal)
 
 
-class Linear4MCMC(nn.Linear):
+class Linear4MCMC(nn.Linear, MCMCLayer):
     is_binary = False
     def update(self, neighborhood, proposal):
         self.selected_size = -1
@@ -90,7 +135,7 @@ class Linear4MCMC(nn.Linear):
         b = self.bias.data[idces_b]
         return torch.cat((w,b))
 
-class BinaryLinear(Linear4MCMC):
+class BinaryLinear(Linear4MCMC, MCMCLayer):
     is_binary = True
     def __init__(self, input, output):
         super(BinaryLinear, self).__init__(input, output)
@@ -106,6 +151,9 @@ class BinaryLinear(Linear4MCMC):
         self.update(neighborhood, proposal)
 
 class MLP(nn.Module):
+    """
+    Constructs a Multi layer perceptron
+    """
     def __init__(self, sizes, binary_flags=None, activations=None):
         """
         builds a multi layer perceptron
@@ -132,7 +180,7 @@ class MLP(nn.Module):
             else:
                 activation = getattr(nn, activations[i])()
             self.activations.append(activation)
-        activations[-1] = None # because the loss function contains its own activation
+        self.activations[-1] = None # because the loss function contains its own activation
 
     def forward(self, x):
         x = self.flatten(x)
@@ -152,19 +200,28 @@ class ConvNet(nn.Module):
     init_sparse = boolean (1 = Student heavy tailed initialization)
     pruning_level = exact sparsity coefficient at init and for proposal epsilon or gradient steps
     '''
+<<<<<<< HEAD
     def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False, pruning_level=0):
+=======
+    def __init__(self,nb_filters,channels, binary_flags=None, activations=None, init_sparse=False, pruning_proba=0, kernel_size=11, stride=3, input_size=32):
+>>>>>>> a4771cfcafd456d165d6a819d0081092f508e94e
         super(ConvNet, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
         self.init_sparse = init_sparse
         self.layers = nn.ModuleList()
+<<<<<<< HEAD
         self.pruning_level = pruning_level
+=======
+        self.pruning_proba = pruning_proba
+        self.outconv_size = int((input_size - kernel_size)/stride + 1)
+        self.input_layer_size = self.outconv_size * self.outconv_size * nb_filters
+        self.pool = nn.MaxPool2d(2, 2)
+>>>>>>> a4771cfcafd456d165d6a819d0081092f508e94e
         if binary_flags and binary_flags[0]:
-            if channels == 3:
-                self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
-            else:
-                self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=7, stride=3, padding=0)
+            self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=kernel_size, stride=stride, padding=0)
         else:
+<<<<<<< HEAD
             if channels == 3:
                 self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=11, stride=3, padding=0)
                 if init_sparse:
@@ -183,15 +240,31 @@ class ConvNet(nn.Module):
                     q1 = torch.quantile(torch.flatten(torch.abs(self.conv1.weight.data)),self.pruning_level, dim=0)
                     bin_mat = torch.abs(self.conv1.weight.data) > q1
                     self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
+=======
+            self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=kernel_size, stride=stride, padding=0)
+            if init_sparse:
+                print('INIT SPARSE for CIFAR10')
+                init_values = self.init_sparse.sample(n=nb_filters*channels*11*11)
+                self.conv1.weight.data = torch.tensor(init_values.astype('float32')).reshape((nb_filters,channels,11,11))
+                q1 = torch.quantile(torch.flatten(torch.abs(self.conv1.weight.data)),self.pruning_proba, dim=0)
+                bin_mat = torch.abs(self.conv1.weight.data) > q1
+                self.conv1.weight.data = (bin_mat)*self.conv1.weight.data
+>>>>>>> a4771cfcafd456d165d6a819d0081092f508e94e
         self.layers.append(self.conv1)
         if binary_flags and binary_flags[1]:
-            self.fc1 = BinaryLinear(self.nb_filters * 8 * 8, 10)
+            self.fc1 = BinaryLinear(self.input_layer_size, 10)
         else:
-            self.fc1 = Linear4MCMC(self.nb_filters * 8 * 8, 10)
+            self.fc1 = Linear4MCMC(self.input_layer_size, 10)
             if init_sparse:
+<<<<<<< HEAD
                 init_values_fc = self.init_sparse.sample(n=10*self.nb_filters * 8 * 8)
                 self.fc1.weight.data = torch.tensor(init_values_fc.astype('float32')).reshape((10,self.nb_filters*8*8))
                 q1 = torch.quantile(torch.flatten(torch.abs(self.fc1.weight.data)),self.pruning_level, dim=0)
+=======
+                init_values_fc = self.init_sparse.sample(n=10*self.input_layer_size)
+                self.fc1.weight.data = torch.tensor(init_values_fc.astype('float32')).reshape((10,self.input_layer_size))
+                q1 = torch.quantile(torch.flatten(torch.abs(self.fc1.weight.data)),self.pruning_proba, dim=0)
+>>>>>>> a4771cfcafd456d165d6a819d0081092f508e94e
                 bin_mat = torch.abs(self.fc1.weight.data) > q1
                 self.fc1.weight.data = (bin_mat)*self.fc1.weight.data
         self.layers.append(self.fc1)
@@ -203,9 +276,106 @@ class ConvNet(nn.Module):
 
     def forward(self, x):
         x = self.activations[0](self.conv1(x))
-        x = x.view(-1, self.nb_filters * 8 * 8)
+        x = x.view(-1, self.input_layer_size)
         x = self.fc1(x)
         return x
+
+class SmallbaselineCifar(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 32, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dropout = nn.Dropout(p=0.2)
+        self.conv2 = nn.Conv2d(32, 64, 5)
+        self.fc1 = nn.Linear(64 * 5 * 5, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
+        self.layers = nn.ModuleList([self.conv1, self.conv2, self.fc1, self.fc2, self.fc3 ])
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        #x = F.relu(self.conv1(x))
+        #x = F.relu(self.conv2(x))
+        x = x.view(-1, 64 * 5 * 5)
+        x = self.dropout(F.relu(self.fc1(x)))
+        x = self.dropout(F.relu(self.fc2(x)))
+        x = self.fc3(x)
+        return x
+
+class FCAuxResult(nn.Module):
+    """
+    This class is used for the layer wise optimization with a linear layer
+    The only difference is that you return the intermediate value in addition
+    to the output of the last layer in the forward pass
+    """
+    def __init__(self, sizes, binary_flag=False, activation=None, flatten=True):
+        """
+        builds a multi layer perceptron
+        sizes : list of the size of the different layers [input_size, layer_size, output_size ]
+        activations : can be a string or a list of string. see torch.nn for possible values (ReLU, Softmax,...)
+        """
+        if len(sizes) !=  3:
+            raise Exception("sizes argument is" +  sizes.__str__() + ' . it should be of the shape : [input_size, layer_size, output_size ]')
+        super().__init__()
+        self.flatten = flatten
+        input_size, layer_size, output_size = sizes
+        self.layers = nn.ModuleList()
+        if activation is None:
+            self.activation = nn.ReLU()
+        else:
+            self.activation = getattr(nn, activation)()
+        if binary_flag:
+            self.fc1 = BinaryLinear(input_size, layer_size)
+        else:
+            self.fc1 = Linear4MCMC(input_size, layer_size)
+        self.fc2 =  Linear4MCMC(layer_size, output_size)
+        self.layers = nn.ModuleList([self.fc1, self.fc2 ])
+        self.dropout = nn.Dropout(p=0.2)
+
+    def forward(self, x):
+        """
+        return
+            aux: for the evaluation of the auxiliary loss
+            z: the output of this block which will be fed to the next block
+        """
+        if self.flatten:
+            x = x.flatten(start_dim=1)
+        #z = self.dropout(self.activation(self.fc1(x)))
+        z = self.activation(self.fc1(x))
+        aux = self.fc2(z)
+        return z, aux
+
+class ConvNetAuxResult(nn.Module):
+    """
+    This class is used for the layer wise optimization
+    The only difference is that we collect the intermediate value in
+    addition to the predictions
+    """
+    def __init__(self,nb_filters, channels, binary_flag=False, activation=None, kernel_size=11, stride=3, input_size=32):
+        super().__init__()
+        self.nb_filters = nb_filters
+        self.channels = channels
+        self.pool = nn.MaxPool2d(2, 2)
+        #  ((image_width - kernel_size + padding )/ stride + 1 ) / pooling
+        self.outconv_size = int((input_size - kernel_size)/stride + 1) // 2
+        self.input_layer_size = self.outconv_size * self.outconv_size * self.nb_filters
+        if binary_flag:
+            self.conv1 = BinaryConv2d(in_channels=channels, out_channels=nb_filters, kernel_size=kernel_size, stride=stride, padding=0)
+        else:
+            self.conv1 = Conv2d4MCMC(in_channels=channels, out_channels=nb_filters, kernel_size=kernel_size, stride=stride, padding=0)
+        if activation is None:
+            self.activation = nn.ReLU()
+        else:
+            self.activation = getattr(nn, activation)
+        self.fc1 = Linear4MCMC(self.input_layer_size, 10)
+        self.layers = nn.ModuleList([self.conv1, self.fc1])
+
+    def forward(self, x):
+        z = self.pool(self.activation(self.conv1(x)))
+        x = z.flatten(start_dim=1)
+        aux = self.fc1(x)
+        return z, aux
 
 class BinaryConnectConv(ConvNet):
     def __init__(self,nb_filters,channels, binary_flags=[True, False], activations=None, init_sparse=False, pruning_level=0):
@@ -367,7 +537,7 @@ def evaluate_sparse(dataloader, model, loss_fn, proba,boolean_flags,fc=True):
         model_sparse.conv1.bias.data = (bin_mat1bias)*model.conv1.bias.data
     else:
         model_sparse.conv1.weight.data = model.conv1.weight.data
-        model_sparse.conv1.bias.data = model.conv1.bias.data        
+        model_sparse.conv1.bias.data = model.conv1.bias.data
     if fc and boolean_flags[1]!= 1:
         #shrinkage of fc layer
         #weights

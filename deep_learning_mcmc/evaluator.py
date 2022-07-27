@@ -38,3 +38,21 @@ def get_conf_matrix_imgclass(pairs, classes=None, normalize=False, unknown_class
         # row normalization
         cm = np.round((cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]*100)).astype('int')
     return cm, classes
+
+def evaluateLayerWise(dataloader, model, loss_fn):
+    device = next(model[0].parameters()).device
+    size = len(dataloader.dataset)
+    test_loss = dict([(i,0) for i in range(len(model)) ])
+    correct =  dict([(i,0) for i in range(len(model)) ])
+    with torch.no_grad():
+        for X, y in dataloader:
+            for i, m in enumerate(model):
+                X = X.to(device)
+                y = y.to(device)
+                X, pred = model[i](X)
+                test_loss[i] += loss_fn(pred, y).item()
+                correct[i] += (pred.argmax(1) == y).type(torch.float).sum().item()
+    #test_loss /= size
+    for i, v in correct.items():
+        correct[i] = v/size
+    return test_loss, correct

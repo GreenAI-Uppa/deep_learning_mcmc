@@ -26,6 +26,26 @@ def get_idces_uniform_linear(neighborhood_size):
         return idces_w, idces_b
     return get_idx
 
+def get_idces_linear_square(square_side):
+    """
+    select neighborhood_size weights from a linear layer according to a uniform law
+    """
+    def get_idx(layer):
+        n_output, n_input = layer.weight.data.shape
+        f_size = n_output * n_input
+        if neighborhood_size > f_size:
+            raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(f_size)+"\n neighborhood_size should be lower than this number")
+        a, b = torch.arange(n_output), torch.arange(n_input)
+        idces_w = torch.cat((a.repeat(n_input).reshape(f_size,1),b.repeat_interleave(n_output).reshape(f_size,1)), dim=1)
+        idces_of_idces = list(range(f_size))
+        random.shuffle(idces_of_idces)
+        idces_of_idces  = idces_of_idces[:neighborhood_size]
+        idces_w = idces_w[idces_of_idces,:].long()
+        idces_b = idces_w[idces_w[:,1]==n_input][:,0]
+        idces_w = idces_w[idces_w[:,1]<n_input]
+        return idces_w, idces_b
+    return get_idx
+
 def get_idces_line_linear():
     """
     select one row of a fully connected layer
@@ -49,17 +69,16 @@ def get_idces_filter_conv():
         return idces_w, idx_filter
     return get_idx
 
-# TODO number of nb_filters
-
-
 def get_idces_uniform_conv(neighborhood_size):
     """
-    select neighborhood_size weights from a conv layer according to a uniform law
+    select neighborhood_size weights from a conv layer according to an uniform law
     """
     def get_idx(layer):
         n_filter, channels, k1, k2 = layer.weight.data.shape
+        # select a filter
         idx_filter = torch.randint(0, n_filter, (1,))
         filter_idces = layer.get_idx_flattened_1_filter(idx_filter)
+        # select neighborhood_size parameters on this filter 
         f_size = filter_idces.shape[0]
         if neighborhood_size > f_size:
             raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(f_size)+"\n neighborhood_size should be lower than this number")

@@ -1,0 +1,13 @@
+{
+  "batch_size": 64,
+  "epochs": 100,
+  "exp_name": "layer_wise",
+  "optimizer": {
+	  "name":"layer_wise",
+    "subname":"grad",
+	  "lr": 0.001
+  },
+  "dataset": "CIFAR10",
+  "measure_power" : 0
+}
+

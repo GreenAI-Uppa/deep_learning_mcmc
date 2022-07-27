@@ -37,11 +37,13 @@ class Optimizer(ABC):
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """abtract method to train a batch of data"""
 
+
 class GradientOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
     def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_level=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
+<<<<<<< HEAD
         self.pruning_level = pruning_level
         #self.current_batch = 0
 
@@ -82,6 +84,9 @@ class GradientOptimizer(Optimizer):
         self.current_batch = i
         print("current batch:", self.current_batch, i, len(dataloader))
         """
+=======
+        self.pruning_proba = pruning_proba
+>>>>>>> a4771cfcafd456d165d6a819d0081092f508e94e
 
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
@@ -91,10 +96,11 @@ class GradientOptimizer(Optimizer):
         pred = model(X)
         los = loss_fn(pred, y)
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
-        for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
+        for i, layer in enumerate(model.layers):
             layer.weight.data -=  gg[2*i] * self.lr
             layer.bias.data -=  gg[2*i+1] * self.lr
 
+<<<<<<< HEAD
 #######################
 #Mozer pruning function
 #######################
@@ -155,6 +161,98 @@ def skeletonization(model,pruning_level,dataloader):
 #######################
 #End of Mozer pruning function
 #######################
+=======
+class LayerWiseOptimizer(GradientOptimizer):
+    """Layer wise training with gradient optimizer"""
+    def __init__(self, buffer_max_size=10, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
+        super().__init__(data_points_max = data_points_max, lr=lr, pruning_proba=pruning_proba)
+        self.buffer_max_size = buffer_max_size
+
+    def scheduler(self, L, n):
+      """
+      L : number of model blocks (or number of machines)
+      n : number of batches
+      dummy scheduler : [-1,0,1,2,3,....L] * Nbatches
+      -1 means that a new data is fed to the 0 machine
+      so this won't be actually asynchronized
+      """
+      for n in range(n):
+          for l in range(-1, L):
+              yield l
+
+    def train_1_epoch(self, dataloader, model, loss_fn):
+        """train the data for 1 epoch"""
+        buffers = dict([ (i,{ 'data': [], 'counters': [] }) for i in range(len(model))])
+        X, y = next(iter(dataloader))
+        #buffers[1]['data'].append((X,y))
+        device = next(model[0].parameters()).device
+        schedule = self.scheduler(len(model), len(dataloader))
+        for i, l in enumerate(schedule):
+            #print('iter',i,'layer',l)
+            if i%100==0:
+                print(i,'iterations')
+            if l == -1:
+                X, y = next(iter(dataloader))
+            else:
+                X, y = self.read_buffer(buffers[l])
+                X = X.to(device)
+                y = y.to(device)
+                X = self.train_1_batch(X, y, model[l], loss_fn)
+            if l<len(model)-1:
+                # send the output X of the previous layer to the next machine
+                self.write_buffer(buffers[l+1], (X,y))
+            #import pdb; pdb.set_trace()
+
+    def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
+        """
+        SGD optimization, and returns the output of the conv layer
+        """
+        device = next(model.parameters()).device
+        X, pred = model(X)
+        los = loss_fn(pred, y)
+        gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
+        for i, layer in enumerate(model.layers):
+            layer.weight.data -=  gg[2*i] * self.lr
+            layer.bias.data -=  gg[2*i+1] * self.lr
+        return X
+
+    def write_buffer(self, b, x):
+        """
+        b buffer : a list of batches and counters
+        x : batch of data
+        write data to the buffer
+        Just append the data if the buffer is not full
+        otherwise, replace the most used point
+        if there are several of them, remove with a 'first in first out' scheme
+        """
+        if len(b['data']) < self.buffer_max_size:
+            b['data'].append(x)
+            b['counters'].append(0)
+        else:
+            # select the batch which have been used the most (max counter)
+            # and among them the one which has been added the earliest to the
+            # buffer (min index)
+            cmax = max(b['counters'])
+            idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmax ])
+            # replace the selected old batch by the new batch
+            b['counters'][idx] = 0
+            b['data'][idx] = x
+            #print('replacing',idx)
+
+    def read_buffer(self, b):
+        """
+        get the least used minibatch
+        if there are several of them, take the oldest one in the buffer,
+        ie the one with the mininum index,
+        to be coherent with the 'first in first out' writing
+        """
+        cmin = min(b['counters'])
+        idx = min([ i  for (i,c) in enumerate(b['counters']) if c==cmin ])
+        # recording that this batch has been used
+        b['counters'][idx] += 1
+        #print('reading ',idx)
+        return b['data'][idx]
+>>>>>>> a4771cfcafd456d165d6a819d0081092f508e94e
 
 
 class BinaryConnectOptimizer(Optimizer):
@@ -162,8 +260,12 @@ class BinaryConnectOptimizer(Optimizer):
     def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_level=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
+<<<<<<< HEAD
         self.pruning_level = pruning_level
         #self.current_batch = 0
+=======
+        self.pruning_proba = pruning_proba
+>>>>>>> a4771cfcafd456d165d6a819d0081092f508e94e
 
     def train_1_epoch(self, dataloader, model, loss_fn):
         """train the data for 1 epoch"""
@@ -171,13 +273,6 @@ class BinaryConnectOptimizer(Optimizer):
         # attempting to guess the device on the model.
         device = next(model.parameters()).device
         for i, (X, y) in enumerate(dataloader):
-            """
-            if i <= self.current_batch:
-                continue
-            if self.current_batch + 1 < i:
-                break
-            print("passing")
-            """
             if self.data_points_max <= num_items_read:
                 break
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
@@ -186,12 +281,6 @@ class BinaryConnectOptimizer(Optimizer):
             X = X.to(device)
             y = y.to(device)
             self.train_1_batch(X, y, model, loss_fn)
-        """
-        if len(dataloader) - 1 <= i:
-            i = 0
-        self.current_batch = i
-        print("current batch:", self.current_batch, i, len(dataloader))
-        """
 
     def train_1_batch(self, X, y, model, loss_fn=torch.nn.CrossEntropyLoss()):
         """
@@ -275,6 +364,7 @@ class MCMCOptimizer(Optimizer):
         """
         device = next(model.parameters()).device
         ar = Acceptance_ratio()
+        
         pred = model(X)
         loss = loss_fn(pred,y).item()
         if self.pruning_level>0:
@@ -284,9 +374,13 @@ class MCMCOptimizer(Optimizer):
             transform=ToTensor())
             pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
         for i in range(self.iter_mcmc):
+<<<<<<< HEAD
             if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
                 skeletonization(model,self.pruning_level,pruning_dataloader)
             # selecting a layer and a  at random
+=======
+            # selecting a layer and a layer at random
+>>>>>>> a4771cfcafd456d165d6a819d0081092f508e94e
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
             params_line = self.selector.getParamLine(neighborhood, model)
