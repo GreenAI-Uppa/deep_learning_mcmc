@@ -180,7 +180,7 @@ class MLP(nn.Module):
             else:
                 activation = getattr(nn, activations[i])()
             self.activations.append(activation)
-        activations[-1] = None # because the loss function contains its own activation
+        self.activations[-1] = None # because the loss function contains its own activation
 
     def forward(self, x):
         x = self.flatten(x)
