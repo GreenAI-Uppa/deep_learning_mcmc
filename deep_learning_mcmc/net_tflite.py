@@ -11,7 +11,16 @@ import tensorflow as tf
 
 def get_interpreter(tflite_model):
     # Load TFLite model and allocate tensors.
-    interpreter = tf.lite.Interpreter(model_content=tflite_model)
+    #interpreter = tf.lite.Interpreter(model_content=tflite_model)
+    #print(tflite_model)
+    f=open("binfile.bin","wb")
+    f.write(tflite_model)
+    f.close()
+    f = open('binfile.bin', 'rb') # opening a binary file
+    content = f.read() # reading all lines  
+    f.close()
+    interpreter = tf.lite.Interpreter(model_content=content)
+    #interpreter = tf.lite.Interpreter(model_path="BinaryMcmc.tflite")
     # Note: need to fake resize the input & reallocate tensors
     interpreter.resize_tensor_input(0, [1,3,32,32], strict=True)
     interpreter.allocate_tensors()
@@ -27,16 +36,17 @@ def update(tflite_model,model,neighborhood, proposal,update_b = True):
     if w != None:
         wt = w.cpu().detach().numpy()
         # get weight tensor to modify
-        j=0
+    
         tensors_quant = None
         #print(interpreter.get_tensor_details())
         for details in interpreter.get_tensor_details():
             if 'sequential/quant_conv2d/' in details['name'] : 
-                j=j+1
-                if j==2 :
-                    tensors_quant = details
-                    break
+                tensors_quant = details
+                break
         wt = np.transpose(np.array(wt), (0,2,3,1))
+        print("#########@")
+        print(wt.shape)
+        print(interpreter.get_tensor(tensors_quant['index']).shape)
         interpreter.set_tensor(tensors_quant['index'], wt)
     return interpreter
 

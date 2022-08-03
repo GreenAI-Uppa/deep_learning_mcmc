@@ -133,7 +133,7 @@ else:
     else:
         optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector)
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cpu' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
@@ -174,8 +174,8 @@ import tensorflow as tf
 input_np = np.random.uniform(0, 1, (1, 3, 32, 32))
 input_var = Variable(torch.FloatTensor(input_np))
 k_model = pytorch_to_keras(model, input_var,[(3, None, None,)], verbose=True)  
-torch.save(model, 'model.pt')
-k_model.save('k_model.h5')
+#torch.save(model, 'model.pt')
+#k_model.save('k_model.h5')
 print(summary(model))
 print(k_model.summary())
 print(k_model.get_layer(index=1).get_weights())
@@ -214,7 +214,7 @@ layerconv.set_weights(k_model.get_layer(index=1).get_weights())
 model_larq.add(k_model.get_layer(index=2))
 model_larq.add(k_model.get_layer(index=3))
 model_larq.add(k_model.get_layer(index=4))
-model_larq.save('larq_model.h5')
+#model_larq.save('larq_model.h5')
 print("summary model")
 print(model_larq.summary())
 # pour modifer les poids du modèle tfile
