@@ -133,7 +133,7 @@ else:
     else:
         optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector)
 
-device = 'cpu' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
 epochs = params['epochs']
 loss_fn = torch.nn.CrossEntropyLoss()
@@ -161,6 +161,7 @@ if params['measure_power']:
     exp = experiment.Experiment(driver,model=model,input_size=input_image_size)
     p, q = exp.measure_yourself(period=2)
 model = model.to(device)
+"""
 # convert torch model to keras model
 from pytorch2keras import pytorch_to_keras
 from torch.autograd import Variable
@@ -226,7 +227,13 @@ with open("BinaryMcmc.tflite", "wb") as flatbuffer_file:
     flatbuffer_file.write(flatbuffer_bytes)
 #print("Interpreter")
 
+"""
 
+# open bin file for model_content tflite
+
+f = open('binfile.bin', 'rb') # opening a binary file
+flatbuffer_bytes = f.read() # reading all lines  
+f.close()
 
 
 
@@ -245,9 +252,9 @@ for t in range(epochs):
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
     if use_gradient:
         print("0K use gradient")
-        optimizer.train_1_epoch(train_dataloader, model,k_model, flatbuffer_bytes,loss_fn)
+        optimizer.train_1_epoch(train_dataloader, model, flatbuffer_bytes,loss_fn)
     else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model,k_model,flatbuffer_bytes, loss_fn, verbose=params['verbose'])
+        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model,flatbuffer_bytes, loss_fn, verbose=params['verbose'])
     result = {"epoch":t}
     end_epoch = time.time()
     training_time += time.time() - start_epoch

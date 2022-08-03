@@ -228,7 +228,7 @@ class MCMCOptimizer(Optimizer):
             self.prior = prior
         self.selector = selector
 
-    def train_1_epoch(self, dataloader, model, model_keras, tflite_model, loss_fn, verbose=False):
+    def train_1_epoch(self, dataloader, model, tflite_model, loss_fn, verbose=False):
         """
         train for 1 epoch and collect the acceptance ratio
         """
@@ -248,10 +248,10 @@ class MCMCOptimizer(Optimizer):
             #print(X.numpy().shape)
             print("Y")
             print(y)
-            acceptance_ratio += self.train_1_batch(X, y, model,model_keras,tflite_model, dataloader, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose)
+            acceptance_ratio += self.train_1_batch(X, y, model,tflite_model, dataloader, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose)
         return acceptance_ratio
 
-    def train_1_batch(self, X, y, model,model_keras,tflite_model, dataloader, loss_fn, verbose=False):
+    def train_1_batch(self, X, y, model,tflite_model, dataloader, loss_fn, verbose=False):
         """
         perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
 
@@ -299,15 +299,12 @@ class MCMCOptimizer(Optimizer):
             student_ratio = self.prior.get_ratio(epsilon, params_line, self.selector.neighborhood_info)
 
             # applying the changes to get the new value of the loss
-            #print(np.array([np.array(X[0])]).shape)
-            #interpreter = self.selector.update(model,model_keras, tflite_model, neighborhood, epsilon,X)
-            #if interpreter != None :
             print('in train 1 batch')
             
-            #print(model_keras.predict(np.array(X)))
             #pred = model(X)
             interpreter = ntfl.update(tflite_model,model,neighborhood, epsilon)
             pred = ntfl.predict(interpreter,X)
+            print(pred)
             loss_prop = loss_fn(pred, y)
             # computing the change in the loss
             lamb = self.sampler.get_lambda(self.selector.neighborhood_info)
