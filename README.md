@@ -16,10 +16,10 @@ python setup.py install
 
 ## usage
 
-Test a learning process of a two-layer CNN (one convolution layer of 11*11*3 filters and one dense layer) on cifar-10 with mcmc (run --help for additional arguments)
+Test a learning process of a two-layer CNN (one convolution layer of 11 x 11 x 3 filters and one dense layer) on cifar-10 with mcmc (run --help for additional arguments)
 
 ```
-python run_jmlr.py --config_file configs/config_mcmc_conv_cnn.json --data_folder /data/pytorch_cifar10/ --verbose
+python run_jmlr.py --config_file configs/config_mcmc_cnn.json --data_folder /data/pytorch_cifar10/ --verbose
 ```
 This command will generate a json file containing the loss and the accuracy for the different epochs, as well as different logs on the training process and the robustness to pruning.
 
