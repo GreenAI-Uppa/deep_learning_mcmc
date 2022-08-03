@@ -7,7 +7,6 @@ from torchvision import datasets
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 import copy
-import tensorflow as tf
 import tflite_runtime.interpreter as tflite
 
 def get_interpreter(tflite_model):
