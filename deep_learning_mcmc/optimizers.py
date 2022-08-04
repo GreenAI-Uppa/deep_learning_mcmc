@@ -284,6 +284,7 @@ class MCMCOptimizer(Optimizer):
             transform=ToTensor())
             pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
         for i in range(self.iter_mcmc):
+            print(i)
             if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
                 skeletonization(model,self.pruning_level,pruning_dataloader)
             # selecting a layer and a  at random
@@ -303,8 +304,9 @@ class MCMCOptimizer(Optimizer):
             # computing the change in the loss
             lamb = self.sampler.get_lambda(self.selector.neighborhood_info)
             data_term = torch.exp(lamb * (loss -loss_prop))
-
             rho  = min(1, data_term * student_ratio)
+            print('rho for layer',layer_idx,'=', torch.tensor(rho).item())
+            print('data term = ',data_term.item(),'student ratio =', student_ratio.item())
             if verbose:
                 print(i,'moove layer',layer_idx,'rho=',float(rho),'data term=',float(data_term),'ratio=',float(student_ratio),'| ','loss_prop',float(loss_prop),'loss gain',float(loss-loss_prop))
             key = self.selector.get_proposal_as_string(neighborhood)
@@ -314,12 +316,15 @@ class MCMCOptimizer(Optimizer):
                 ar.incr_acc_count(key)
                 loss = loss_prop
                 decision = 'accepted'
+                print('moove layer',layer_idx,' accepted')
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
                 decision = 'rejected'
             if verbose:
                 print('moove',decision)
+            print('non-zero values for conv layer =',torch.count_nonzero(model.conv1.weight.data))
+            print('non-zero values for FC layer =',torch.count_nonzero(model.fc1.weight.data))
         return ar
 
 
