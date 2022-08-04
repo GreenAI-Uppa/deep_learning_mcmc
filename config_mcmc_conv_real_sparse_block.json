@@ -1,6 +1,6 @@
 {
         "batch_size": 50000,
-        "epochs": 10,
+        "epochs": 1,
         "exp_name": "mozer",
         "architecture": {
                 "boolean_flags": [0, 0],
@@ -10,16 +10,16 @@
         "variance_init": 0.00000001,
         "optimizer": {
                 "name": "mcmc",
-                "pruning_level":0.5,
+                "pruning_level":0.8,
                 "selector" : {
                     "name": "Selector",
                     "layer_conf" : [
                        {"layer_distr" :0.5, "get_idx":"get_idces_filter_conv"},
-                       {"layer_distr" :0.5, "get_idx":"get_block_weight_index","get_idx_param":[512,5]}]
+                       {"layer_distr" :0.5, "get_idx":"get_block_weight_index","get_idx_param":[128,2]}]
                 },
                 "samplers" : [
                     {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000},
-                    {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000}
+                    {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.1}, "lamb":100000}
                     ],
                 "iter_mcmc" : 200
         },
