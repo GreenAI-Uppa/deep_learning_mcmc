@@ -106,32 +106,20 @@ if "activations" not in params["architecture"]:
 else:
     activations = params["architecture"]["activations"]
 
-
-
-use_gradient = params['optimizer']["name"] == 'grad'
-# setting the optimizer
-if params["optimizer"]["name"] == "grad":
-    if 'pruning_level' in params["optimizer"]:
-        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'],pruning_level=params["optimizer"]['pruning_level'])
+config = {'name': params['optimizer']['selector']['name'], 'layer_conf':[]}
+for layer_conf in params['optimizer']['selector']['layer_conf']:
+    layer_distr = layer_conf['layer_distr']
+    if 'get_idx_param' in layer_conf:
+        get_idx = getattr(selector, layer_conf['get_idx'])(layer_conf['get_idx_param'])
     else:
-        optimizer = optimizers.GradientOptimizer(lr=params["optimizer"]['lr'])
-elif params["optimizer"]["name"] == "binaryConnect":
-    optimizer = optimizers.BinaryConnectOptimizer(lr=params["optimizer"]['lr'])
+        get_idx = getattr(selector, layer_conf['get_idx'])()
+    config['layer_conf'].append({'layer_distr': layer_distr, 'get_idx': get_idx})
+selector =  selector.build_selector(config)
+samplers = stats.build_samplers(params["optimizer"]["samplers"])
+if 'pruning_level' in params["optimizer"]:
+    optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector,pruning_level=params["optimizer"]['pruning_level'])
 else:
-    config = {'name': params['optimizer']['selector']['name'], 'layer_conf':[]}
-    for layer_conf in params['optimizer']['selector']['layer_conf']:
-        layer_distr = layer_conf['layer_distr']
-        if 'get_idx_param' in layer_conf:
-            get_idx = getattr(selector, layer_conf['get_idx'])(layer_conf['get_idx_param'])
-        else:
-            get_idx = getattr(selector, layer_conf['get_idx'])()
-        config['layer_conf'].append({'layer_distr': layer_distr, 'get_idx': get_idx})
-    selector =  selector.build_selector(config)
-    samplers = stats.build_samplers(params["optimizer"]["samplers"])
-    if 'pruning_level' in params["optimizer"]:
-        optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector,pruning_level=params["optimizer"]['pruning_level'])
-    else:
-        optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector)
+    optimizer = optimizers.MCMCOptimizer(samplers, iter_mcmc=params["optimizer"]["iter_mcmc"], prior=samplers, selector=selector)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('Using {} device'.format(device))
@@ -142,7 +130,7 @@ results = {}
 if "variance_init" in params:
     st_init = stats.Student(params['variance_init'])
     if 'pruning_level' in params["optimizer"]:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init,pruning_level = params["optimizer"]['pruning_level'])
+        model = nets.ConvNet(params['architecture']['nb_filters'], channels, init_sampler = stats.Student(params['variance_init']), binary_flags=boolean_flags,  activations=activations, init_sparse='block_sparse',pruning_level = params["optimizer"]['pruning_level'])
     else:
         model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
 else:
@@ -174,35 +162,24 @@ for t in range(epochs):
     '''
     start_epoch = time.time()
     print(f"Epoch {t+1} is running\n--------------------- duration = "+time.strftime("%H:%M:%S",time.gmtime(time.time() - start_all)) +"----------")
-    if use_gradient:
-        optimizer.train_1_epoch(train_dataloader, model, loss_fn)
-    else:
-        acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=params['verbose'])
+    acceptance_ratio = optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=params['verbose'])
     result = {"epoch":t}
     end_epoch = time.time()
     training_time += time.time() - start_epoch
     result['training_time'] = time.time() - start_epoch
     result['end_training_epoch'] = datetime.datetime.now().__str__()
     loss, accuracy = nets.evaluate(train_dataloader, model, loss_fn)
-    if use_gradient:
-        result['iterations'] = (t+1)*int(50000/batch_size)
-        result['passforwards'] = (t+1)*50000
-        result['backwards'] = (t+1)*50000
-        result['weights_updated'] = (t+1)*int(50000/batch_size)*64266
-        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
-    else:
-        result['iterations'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
-        result['passforwards'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
-        result['backwards'] = 0
-        print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
-        print("Acceptance ratio",acceptance_ratio)
-    if not use_gradient:
-        result['accept_ratio'] = acceptance_ratio.to_dict()
-        acc_0 = acceptance_ratio.to_dict()["layer_0"]
-        acc_1 = acceptance_ratio.to_dict()["layer_1"]
-        if 'get_idx_param' in params['optimizer']['selector']['layer_conf'][1]:
-            result['weights_updated'] = previous_w_updated #+ int(50000/batch_size)*params["optimizer"]["iter_mcmc"]*(0.5*363+0.5*layer_conf['get_idx_param'])
-            previous_w_updated = result['weights_updated']
+    result['iterations'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
+    result['passforwards'] = (t+1)*params["optimizer"]["iter_mcmc"]*int(50000/batch_size)
+    result['backwards'] = 0
+    print(f"Training Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n") #Acceptance ratio: {acceptance_ratio:>2f}")
+    print("Acceptance ratio",acceptance_ratio)
+    result['accept_ratio'] = acceptance_ratio.to_dict()
+    acc_0 = acceptance_ratio.to_dict()["layer_0"]
+    acc_1 = acceptance_ratio.to_dict()["layer_1"]
+    if 'get_idx_param' in params['optimizer']['selector']['layer_conf'][1]:
+        result['weights_updated'] = previous_w_updated #+ int(50000/batch_size)*params["optimizer"]["iter_mcmc"]*(0.5*363+0.5*layer_conf['get_idx_param'])
+        previous_w_updated = result['weights_updated']
     result['train_loss'] = loss
     result['train_accuracy'] = accuracy
     loss, accuracy = nets.evaluate(test_dataloader, model, loss_fn)
@@ -216,12 +193,14 @@ for t in range(epochs):
             result['sparse test'] = [{'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }]
         else:
             result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
+    '''
     for i in range(9):
         proba = 0.91+i*0.01
         loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
         result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
     if int(math.log(t+1,10)) == math.log(t+1,10):
         torch.save(model, exp_name+str(t+1)+'.th')
+    '''
     result['eval_time'] = time.time() - end_epoch
     eval_time += time.time() - end_epoch
     result['end_eval'] = datetime.datetime.now().__str__()
