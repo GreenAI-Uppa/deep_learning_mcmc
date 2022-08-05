@@ -9,6 +9,7 @@ from torchvision import datasets
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 import copy
+from deep_learning_mcmc import pruning
 
 class Optimizer(ABC):
     """Generic optimizer interface"""
@@ -278,15 +279,20 @@ class MCMCOptimizer(Optimizer):
         pred = model(X)
         loss = loss_fn(pred,y).item()
         if self.pruning_level>0:
-            test_data = datasets.CIFAR10(root='../data',
-            train=False,
-            download=True,
-            transform=ToTensor())
-            pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
+            Pruner = pruning.MCMCPruner()
+            relevance_dict_conv_layer = {}
+            for cle in range(model.conv1.weight.data.shape[0]):
+                relevance_dict_conv_layer[cle] = 0
+            relevance_dict_linear_layer_w = torch.zeros(model.fc1.weight.data.shape)
+            relevance_dict_linear_layer_b = torch.zeros(model.fc1.bias.data.shape[0],1)
+            relevance_dict_linear_layer = {'weight':relevance_dict_linear_layer_w, 'bias':relevance_dict_linear_layer_b}
         for i in range(self.iter_mcmc):
             print(i)
-            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
-                skeletonization(model,self.pruning_level,pruning_dataloader)
+            if i>0 and self.pruning_level>0 and i%20 == 0:#skeletonize any 50 mcmc iterations
+                print('Skeletonization...')
+                Pruner.skeletonize_conv(model,self.pruning_level,relevance_dict_conv_layer)
+                Pruner.skeletonize_fc(model,self.pruning_level,relevance_dict_linear_layer)
+                loss = loss_fn(model(X),y)#update loss for a faithful likelihood ratio
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
@@ -317,14 +323,21 @@ class MCMCOptimizer(Optimizer):
                 loss = loss_prop
                 decision = 'accepted'
                 print('moove layer',layer_idx,' accepted')
+                if layer_idx == 0 and self.pruning_level >0:
+                    relevance_dict_conv_layer[int(idces[0][0][0])]+=1
+                if layer_idx == 1 and self.pruning_level >0:
+                    relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] +=1
+                    relevance_dict_linear_layer['bias'][idces[1]] +=1
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
                 decision = 'rejected'
             if verbose:
                 print('moove',decision)
-            print('non-zero values for conv layer =',torch.count_nonzero(model.conv1.weight.data))
-            print('non-zero values for FC layer =',torch.count_nonzero(model.fc1.weight.data))
+            #print('non-zero values for conv layer =',torch.count_nonzero(model.conv1.weight.data))
+            print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+            #print('non-zero values for FC layer =',torch.count_nonzero(model.fc1.weight.data))
+            print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
         return ar
 
 
