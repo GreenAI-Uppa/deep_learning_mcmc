@@ -287,11 +287,16 @@ class MCMCOptimizer(Optimizer):
             relevance_dict_linear_layer_b = torch.zeros(model.fc1.bias.data.shape[0],1)
             relevance_dict_linear_layer = {'weight':relevance_dict_linear_layer_w, 'bias':relevance_dict_linear_layer_b}
         for i in range(self.iter_mcmc):
-            print(i)
-            if i>0 and self.pruning_level>0 and i%20 == 0:#skeletonize any 50 mcmc iterations
+            #print(i)
+            if i>0 and self.pruning_level>0 and i%100 == 0:#skeletonize any 50 mcmc iterations
+                print(i)
+                print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+                print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
                 print('Skeletonization...')
                 Pruner.skeletonize_conv(model,self.pruning_level,relevance_dict_conv_layer)
                 Pruner.skeletonize_fc(model,self.pruning_level,relevance_dict_linear_layer)
+                print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+                print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
                 loss = loss_fn(model(X),y)#update loss for a faithful likelihood ratio
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
@@ -311,8 +316,8 @@ class MCMCOptimizer(Optimizer):
             lamb = self.sampler.get_lambda(self.selector.neighborhood_info)
             data_term = torch.exp(lamb * (loss -loss_prop))
             rho  = min(1, data_term * student_ratio)
-            print('rho for layer',layer_idx,'=', torch.tensor(rho).item())
-            print('data term = ',data_term.item(),'student ratio =', student_ratio.item())
+            #print('rho for layer',layer_idx,'=', torch.tensor(rho).item())
+            #print('data term = ',data_term.item(),'student ratio =', student_ratio.item())
             if verbose:
                 print(i,'moove layer',layer_idx,'rho=',float(rho),'data term=',float(data_term),'ratio=',float(student_ratio),'| ','loss_prop',float(loss_prop),'loss gain',float(loss-loss_prop))
             key = self.selector.get_proposal_as_string(neighborhood)
@@ -322,7 +327,7 @@ class MCMCOptimizer(Optimizer):
                 ar.incr_acc_count(key)
                 loss = loss_prop
                 decision = 'accepted'
-                print('moove layer',layer_idx,' accepted')
+                #print('moove layer',layer_idx,' accepted')
                 if layer_idx == 0 and self.pruning_level >0:
                     relevance_dict_conv_layer[int(idces[0][0][0])]+=1
                 if layer_idx == 1 and self.pruning_level >0:
@@ -335,9 +340,9 @@ class MCMCOptimizer(Optimizer):
             if verbose:
                 print('moove',decision)
             #print('non-zero values for conv layer =',torch.count_nonzero(model.conv1.weight.data))
-            print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+            #print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
             #print('non-zero values for FC layer =',torch.count_nonzero(model.fc1.weight.data))
-            print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
+            #print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
         return ar
 
 
