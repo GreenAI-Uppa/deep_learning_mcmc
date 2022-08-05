@@ -186,6 +186,7 @@ for t in range(epochs):
     print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {loss:>8f} \n")
     result['test_loss'] = loss
     result['test_accuracy'] = accuracy
+    '''
     for i in range(9):
         proba = 0.1+i*0.1
         loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
@@ -193,7 +194,7 @@ for t in range(epochs):
             result['sparse test'] = [{'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept }]
         else:
             result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
-    '''
+    
     for i in range(9):
         proba = 0.91+i*0.01
         loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
