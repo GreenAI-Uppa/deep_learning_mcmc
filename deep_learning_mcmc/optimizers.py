@@ -288,7 +288,7 @@ class MCMCOptimizer(Optimizer):
             relevance_dict_linear_layer = {'weight':relevance_dict_linear_layer_w, 'bias':relevance_dict_linear_layer_b}
         for i in range(self.iter_mcmc):
             #print(i)
-            if i>0 and self.pruning_level>0 and i%100 == 0:#skeletonize any 50 mcmc iterations
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
                 print(i)
                 print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
                 print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
