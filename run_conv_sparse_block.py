@@ -200,8 +200,8 @@ for t in range(epochs):
         loss_sparse, accuracy_sparse, kept = nets.evaluate_sparse(test_dataloader, model, loss_fn,proba,boolean_flags)
         result['sparse test'].append({'test loss sparse' : loss_sparse, 'testing accuracy sparse' : accuracy_sparse, 'l0 norm': kept })
     if int(math.log(t+1,10)) == math.log(t+1,10):
-        torch.save(model, exp_name+str(t+1)+'.th')
     '''
+    torch.save(model, exp_name+'.th')
     result['eval_time'] = time.time() - end_epoch
     eval_time += time.time() - end_epoch
     result['end_eval'] = datetime.datetime.now().__str__()
