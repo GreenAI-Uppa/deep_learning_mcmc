@@ -33,7 +33,7 @@ def get_block_weight_index(params):
     return get_idx
 
 
-    
+
 
 
 def get_idces_uniform_linear(neighborhood_size):
@@ -42,6 +42,7 @@ def get_idces_uniform_linear(neighborhood_size):
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
+        n_input += 1
         layer_size = n_output * n_input
         if neighborhood_size > layer_size:
             raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(layer_size)+"\n neighborhood_size should be lower than this number")
