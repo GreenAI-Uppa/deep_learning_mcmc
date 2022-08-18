@@ -330,7 +330,7 @@ class MCMCOptimizer(Optimizer):
                 #print('moove layer',layer_idx,' accepted')
                 if layer_idx == 0 and self.pruning_level >0:
                     relevance_dict_conv_layer[int(idces[0][0][0])]+=1
-                if layer_idx == 1 and self.pruning_level >0:
+                if layer_idx == 2 and self.pruning_level >0:
                     relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] +=1
                     relevance_dict_linear_layer['bias'][idces[1]] +=1
             else:

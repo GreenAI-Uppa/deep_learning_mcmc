@@ -22,12 +22,8 @@
                     ],
                 "iter_mcmc" : 1000
         },
-<<<<<<< HEAD
-	"dataset":"CIFAR"
-=======
 	"dataset": "CIFAR",
 	"measure_power":0
 
->>>>>>> 25d5569c7ec1ea9f9794a7c516f3ab887d480367
 }
 
