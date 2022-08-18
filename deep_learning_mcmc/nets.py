@@ -272,7 +272,7 @@ class ConvLinBlockSparse(nn.Module):
     pruning_level = exact sparsity coefficient at init and for proposal epsilon or gradient steps
     '''
     def __init__(self,nb_filters,channels, init_sampler, binary_flags=None, activations=None, init_sparse=False, pruning_level=0):
-        super(ConvNet, self).__init__()
+        super(ConvLinBlockSparse, self).__init__()
         self.nb_filters = nb_filters
         self.channels = channels
         self.init_sparse = init_sparse

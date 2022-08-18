@@ -132,12 +132,12 @@ if "variance_init" in params:
     if 'pruning_level' in params["optimizer"]:
         model = nets.ConvLinBlockSparse(params['architecture']['nb_filters'], channels, init_sampler = stats.Student(params['variance_init']), binary_flags=boolean_flags,  activations=activations, init_sparse='block_sparse',pruning_level = params["optimizer"]['pruning_level'])
     else:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
+        model = nets.ConvLinBlockSparse(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations, init_sparse=st_init)
 else:
     if 'pruning_level' in params["optimizer"]:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_level = params["optimizer"]['pruning_level'])
+        model = nets.ConvLinBlockSparse(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations,pruning_level = params["optimizer"]['pruning_level'])
     else:
-        model = nets.ConvNet(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
+        model = nets.ConvLinBlockSparse(params['architecture']['nb_filters'], channels, binary_flags=boolean_flags,  activations=activations)
 
 
 exp_name = params['exp_name']
