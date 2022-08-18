@@ -12,6 +12,7 @@ def get_idces_uniform_linear(neighborhood_size):
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
+        n_input+=1 # for the bias
         layer_size = n_output * n_input
         if neighborhood_size > layer_size:
             raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(layer_size)+"\n neighborhood_size should be lower than this number")
@@ -78,7 +79,7 @@ def get_idces_uniform_conv(neighborhood_size):
         # select a filter
         idx_filter = torch.randint(0, n_filter, (1,))
         filter_idces = layer.get_idx_flattened_1_filter(idx_filter)
-        # select neighborhood_size parameters on this filter 
+        # select neighborhood_size parameters on this filter
         f_size = filter_idces.shape[0]
         if neighborhood_size > f_size:
             raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(f_size)+"\n neighborhood_size should be lower than this number")
