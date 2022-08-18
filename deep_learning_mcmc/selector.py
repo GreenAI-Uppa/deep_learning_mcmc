@@ -34,15 +34,13 @@ def get_block_weight_index(params):
 
 
 
-
-
 def get_idces_uniform_linear(neighborhood_size):
     """
     select neighborhood_size weights from a fully connected layer according to a uniform law
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
-        n_input += 1
+        n_input+=1
         layer_size = n_output * n_input
         if neighborhood_size > layer_size:
             raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(layer_size)+"\n neighborhood_size should be lower than this number")
@@ -52,8 +50,8 @@ def get_idces_uniform_linear(neighborhood_size):
         random.shuffle(idces_of_idces)
         idces_of_idces  = idces_of_idces[:neighborhood_size]
         idces_w = idces_w[idces_of_idces,:].long()
-        idces_b = idces_w[idces_w[:,1]==n_input][:,0]
-        idces_w = idces_w[idces_w[:,1]<n_input]
+        idces_b = idces_w[idces_w[:,1]==(n_input-1)][:,0]
+        idces_w = idces_w[idces_w[:,1]<(n_input-1)]
         return idces_w, idces_b
     return get_idx
 

@@ -34,6 +34,9 @@ class SamplerList(object):
         self.samplers = samplers
         self.lambdas = lambdas
 
+    def __getitem__(self, key):
+        return self.samplers[key]
+
     def get_lambda(self, neighborhood):
         """return the lambda value given the layer index"""
         layer_idx, neighborhood_size = neighborhood
