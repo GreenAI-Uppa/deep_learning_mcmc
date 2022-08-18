@@ -1,9 +1,39 @@
 from abc import ABC, abstractmethod
+import numpy as np
 import torch
 import random
 import sys
 current_module = sys.modules[__name__]
 from typing import Tuple
+
+
+def get_block_weight_index(params):
+    """
+    get a random block without intersection with each other
+    """
+    width, heigth = params
+    def get_idx(layer):
+        n_output, n_input = layer.weight.data.shape
+        layer_size = n_output * n_input
+        if (int(n_output) % int(heigth) != 0) or (int(n_input) % int(width) !=0):
+            raise Exception(f"La taille des blocks n'est pas adaptée ! {heigth} doit diviser {n_output} et {width} doit diviser {n_input}")
+        # on va diviser la matrice des poids en block de taille heigth x width
+        nbiw = int(n_input / width) # nombre de block en largeur
+        nbih = int(n_output / heigth) # nombre de block en hauteur
+        list_block = [[i,j] for i in range(nbih) for j in range(nbiw)]
+        nb = np.random.choice(list(range(len(list_block))))
+        selected_block = list_block[nb]
+        list_idx_h = list(range(selected_block[0]*heigth, selected_block[0]*heigth+heigth))
+        list_idx_w = list(range(selected_block[1]*width, selected_block[1]*width+width))
+        list_idx = [[i,j] for i in list_idx_h for j in list_idx_w]
+        # ==== pour le biais ====
+        idx_bias = list(range(n_input))[list_idx_h[0] : list_idx_h[-1]]
+        return torch.tensor(list_idx), torch.tensor(idx_bias)
+        # return torch.tensor(list_idx), torch.empty((n_output))
+    return get_idx
+
+
+    
 
 
 def get_idces_uniform_linear(neighborhood_size):

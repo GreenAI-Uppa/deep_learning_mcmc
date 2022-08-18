@@ -3,6 +3,13 @@ to train the network"""
 import collections
 from abc import ABC, abstractmethod
 import torch
+import numpy as np
+from deep_learning_mcmc import nets
+from torchvision import datasets
+from torch.utils.data import DataLoader
+from torchvision.transforms import ToTensor
+import copy
+from deep_learning_mcmc import pruning
 
 class Optimizer(ABC):
     """Generic optimizer interface"""
@@ -33,18 +40,25 @@ class Optimizer(ABC):
 
 class GradientOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
-    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
+    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_level=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
-        self.pruning_proba = pruning_proba
+        self.pruning_level = pruning_level
         #self.current_batch = 0
 
 
     def train_1_epoch(self, dataloader, model, loss_fn):
+
         """train the data for 1 epoch"""
         num_items_read = 0
         # attempting to guess the device on the model.
         device = next(model.parameters()).device
+        if self.pruning_level>0:
+            test_data = datasets.CIFAR10(root='../data',
+            train=False,
+            download=True,
+            transform=ToTensor())
+            pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
         for i, (X, y) in enumerate(dataloader):
             """
             if i <= self.current_batch:
@@ -61,7 +75,9 @@ class GradientOptimizer(Optimizer):
             X = X.to(device)
             y = y.to(device)
             self.train_1_batch(X, y, model, loss_fn)
-        """
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 gradient step
+                skeletonization(model,self.pruning_level,pruning_dataloader)
+                """
         if len(dataloader) - 1 <= i:
             i = 0
         self.current_batch = i
@@ -78,20 +94,76 @@ class GradientOptimizer(Optimizer):
         gg = torch.autograd.grad(los, model.parameters(), retain_graph=True)
         for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
             layer.weight.data -=  gg[2*i] * self.lr
-            if self.pruning_proba>0 and len(model.layers)<3:#quantile do not scale with alexnet
-                q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
-                bin_mat = torch.abs(layer.weight.data) > q1
-                bin_mat = bin_mat.to(device)
-                layer.weight.data = (bin_mat)*layer.weight.data
             layer.bias.data -=  gg[2*i+1] * self.lr
+
+#######################
+#Mozer pruning function
+#######################
+def forward_alpha(model,alpha, x):
+        x = model.activations[0](model.conv1(x))
+        x = x.view(-1, model.nb_filters * 8 * 8)
+        x = [torch.mul(elt,alpha) for elt in x]
+        x = torch.stack(x)
+        x = model.fc1(x)
+        return x
+
+def relevance(model,dataloader):
+    autograd_tensor = torch.ones((model.nb_filters * 8 * 8), requires_grad=True)
+    num_items_read = 0
+    loss_fn = torch.nn.CrossEntropyLoss()
+    device = next(model.parameters()).device
+    autograd_tensor = autograd_tensor.to(device)
+    gg = []
+    lengths = []
+    '''    test_data = datasets.CIFAR10(root='../data',
+        train=False,
+        download=True,
+        transform=ToTensor())
+    dataloader = DataLoader(test_data, batch_size=256, num_workers=8)
+    '''
+    #print(device,'used for training')
+    for _, (X, y) in enumerate(dataloader):
+        if 1000000 <= num_items_read:
+            break
+        X = X[:min(1000000 - num_items_read, X.shape[0])]
+        y = y[:min(1000000 - num_items_read, X.shape[0])]
+        num_items_read = min(1000000, num_items_read + X.shape[0])
+        X = X.to(device)
+        y = y.to(device)
+        pred = forward_alpha(model,autograd_tensor,X)
+        loss = loss_fn(pred, y)
+        gg.append(torch.autograd.grad(loss, autograd_tensor, retain_graph=True))
+        lengths.append(X.shape[0])
+    normalization = torch.tensor([elt/sum(lengths) for elt in lengths])
+    tensor_gg = torch.tensor([list(gg[k][0]) for k in range(len(gg))])
+    result = [torch.sum(torch.mul(normalization,elt)) for elt in [tensor_gg[:,k] for k in range(tensor_gg.shape[1])]]
+    return(-torch.tensor(result))
+
+def skeletonization(model,pruning_level,dataloader):
+    relevance_ = relevance(model,dataloader)
+    size = int(model.fc1.weight.data.shape[1]*(1-pruning_level))
+    keep_indices = torch.argsort(-relevance_)[:size]
+    device = next(model.parameters()).device
+    cpt = 0
+    for index in set(range(model.fc1.weight.data.shape[1]))-set([int(elt) for elt in keep_indices]):
+        cpt+=1
+        #skeletone.fc1.weight.data[:,index] = torch.zeros(10)
+        model.fc1.weight.data[:,index] = torch.zeros(10)
+    loss_fn = torch.nn.CrossEntropyLoss()
+    print('test accuracy',nets.evaluate(dataloader,model,loss_fn)[1],'after skeletonization')
+    return()
+
+#######################
+#End of Mozer pruning function
+#######################
 
 
 class BinaryConnectOptimizer(Optimizer):
     """plain vanillia Stochastic Gradient optimizer, no adaptative learning rate"""
-    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_proba=0):
+    def __init__(self, data_points_max = 1000000000, lr=0.001, pruning_level=0):
         super().__init__(data_points_max = 1000000000)
         self.lr = lr
-        self.pruning_proba = pruning_proba
+        self.pruning_level = pruning_level
         #self.current_batch = 0
 
     def train_1_epoch(self, dataloader, model, loss_fn):
@@ -149,7 +221,7 @@ class BinaryConnectOptimizer(Optimizer):
 
 
 class MCMCOptimizer(Optimizer):
-    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None, pruning_proba=0):
+    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None, pruning_level=0):
         """
         variance_prop : zero centered univariate student law class to generate the proposals
         variance_prior : zero centered univariate student law class used as a prior on the parameter values
@@ -160,7 +232,7 @@ class MCMCOptimizer(Optimizer):
         self.iter_mcmc = iter_mcmc
         self.lamb = lamb
         self.sampler = sampler
-        self.pruning_proba = pruning_proba
+        self.pruning_level = pruning_level
         if prior is None:
             self.prior = self.sampler
         else:
@@ -182,10 +254,10 @@ class MCMCOptimizer(Optimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptance_ratio += self.train_1_batch(X, y, model, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose)
+            acceptance_ratio += self.train_1_batch(X, y, model, dataloader, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose)
         return acceptance_ratio
 
-    def train_1_batch(self, X, y, model, loss_fn, verbose=False):
+    def train_1_batch(self, X, y, model, dataloader, loss_fn, verbose=False):
         """
         perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
 
@@ -206,7 +278,26 @@ class MCMCOptimizer(Optimizer):
         ar = Acceptance_ratio()
         pred = model(X)
         loss = loss_fn(pred,y).item()
+        if self.pruning_level>0:
+            Pruner = pruning.MCMCPruner()
+            relevance_dict_conv_layer = {}
+            for cle in range(model.conv1.weight.data.shape[0]):
+                relevance_dict_conv_layer[cle] = 0
+            relevance_dict_linear_layer_w = torch.zeros(model.fc1.weight.data.shape)
+            relevance_dict_linear_layer_b = torch.zeros(model.fc1.bias.data.shape[0],1)
+            relevance_dict_linear_layer = {'weight':relevance_dict_linear_layer_w, 'bias':relevance_dict_linear_layer_b}
         for i in range(self.iter_mcmc):
+            #print(i)
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
+                print(i)
+                print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+                print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
+                print('Skeletonization...')
+                Pruner.skeletonize_conv(model,self.pruning_level,relevance_dict_conv_layer)
+                Pruner.skeletonize_fc(model,self.pruning_level,relevance_dict_linear_layer)
+                print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+                print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
+                loss = loss_fn(model(X),y)#update loss for a faithful likelihood ratio
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
@@ -219,21 +310,14 @@ class MCMCOptimizer(Optimizer):
 
             # applying the changes to get the new value of the loss
             self.selector.update(model, neighborhood, epsilon)
-            #to prune or not to prune
-            if self.pruning_proba>0 and len(model.layers)<3:#quantile do not scale with alexnet
-                for i, layer in enumerate(model.layers): #[model.conv1, model.fc1]):
-                    q1 = torch.quantile(torch.flatten(torch.abs(layer.weight.data)),self.pruning_proba, dim=0)
-                    bin_mat = torch.abs(layer.weight.data) > q1
-                    bin_mat = bin_mat.to(device)
-                    layer.weight.data = (bin_mat)*layer.weight.data
             pred = model(X)
             loss_prop = loss_fn(pred, y)
-
             # computing the change in the loss
             lamb = self.sampler.get_lambda(self.selector.neighborhood_info)
             data_term = torch.exp(lamb * (loss -loss_prop))
-
             rho  = min(1, data_term * student_ratio)
+            #print('rho for layer',layer_idx,'=', torch.tensor(rho).item())
+            #print('data term = ',data_term.item(),'student ratio =', student_ratio.item())
             if verbose:
                 print(i,'moove layer',layer_idx,'rho=',float(rho),'data term=',float(data_term),'ratio=',float(student_ratio),'| ','loss_prop',float(loss_prop),'loss gain',float(loss-loss_prop))
             key = self.selector.get_proposal_as_string(neighborhood)
@@ -243,12 +327,22 @@ class MCMCOptimizer(Optimizer):
                 ar.incr_acc_count(key)
                 loss = loss_prop
                 decision = 'accepted'
+                #print('moove layer',layer_idx,' accepted')
+                if layer_idx == 0 and self.pruning_level >0:
+                    relevance_dict_conv_layer[int(idces[0][0][0])]+=1
+                if layer_idx == 1 and self.pruning_level >0:
+                    relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] +=1
+                    relevance_dict_linear_layer['bias'][idces[1]] +=1
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
                 decision = 'rejected'
             if verbose:
                 print('moove',decision)
+            #print('non-zero values for conv layer =',torch.count_nonzero(model.conv1.weight.data))
+            #print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+            #print('non-zero values for FC layer =',torch.count_nonzero(model.fc1.weight.data))
+            #print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
         return ar
 
 
