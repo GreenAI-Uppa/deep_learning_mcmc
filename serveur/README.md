@@ -51,7 +51,7 @@ The communication between the devices is one-way and linear. We, therefore, use 
 **Common start**: 
 - Clone this git on your computer
 - run `serveur/update_scripts.sh` to copy each script on its dedicated device
-- run `monitoring/mount_data.sh` to mount each log file on its dedicated directory in order to run the streamlit dashboard on your own computer
+- run `monitoring/mounting_data.sh` to mount each log file on its dedicated directory in order to run the streamlit dashboard on your own computer
 
 #### Quick, I want the solution
 
