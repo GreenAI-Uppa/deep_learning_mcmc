@@ -16,7 +16,7 @@ from torchvision.models.feature_extraction import create_feature_extractor
 from torchvision.transforms import ToTensor
 
 from deep_learning_mcmc import nets
-
+from deep_learning_mcmc import pruning
 
 class Optimizer(ABC):
     """Generic optimizer interface"""
@@ -188,12 +188,13 @@ class MCMCOptimizer(Optimizer):
             self.prior = prior
         self.selector = selector
         self.queue = queue # queue
-        self.activation = {}
-        self.doc = open("/home/gdev/tmp/mcmc/data", 'w')
-        self.id_batch = 9999999
-        self.x = 0
+        self.activation = {} # save conv output and store it in queue
+        self.doc = open("/home/gdev/tmp/mcmc/data", 'w') # log file
+        self.id_batch = 9999999 # save batch id 
+        self.x = 0 # count iterations
         
     def get_activation(self, name):
+        '''function to save conv1 output'''
         def hook(model, input, output):
             self.activation[name] = output.detach()
         return hook
@@ -251,10 +252,33 @@ class MCMCOptimizer(Optimizer):
         pred = model(X)
         loss = loss_fn(pred,y).item()
         
+        if self.pruning_level>0:
+            Pruner = pruning.MCMCPruner()
+            relevance_dict_conv_layer = {}
+            for cle in range(model.conv1.weight.data.shape[0]):
+                relevance_dict_conv_layer[cle] = 0
+            relevance_dict_linear_layer_w = torch.zeros(model.fc1.weight.data.shape)
+            relevance_dict_linear_layer_b = torch.zeros(model.fc1.bias.data.shape[0],1)
+            relevance_dict_linear_layer = {'weight':relevance_dict_linear_layer_w, 'bias':relevance_dict_linear_layer_b}
+        
+        # store time to measure latency
         t0 = time.time()
         
+        # sleeping state to send queue
         await asyncio.sleep(2)
         for i in range(self.iter_mcmc):
+            
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
+                print(i)
+                print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+                print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
+                print('Skeletonization...')
+                Pruner.skeletonize_conv(model,self.pruning_level,relevance_dict_conv_layer)
+                Pruner.skeletonize_fc(model,self.pruning_level,relevance_dict_linear_layer)
+                print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+                print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
+                loss = loss_fn(model(X),y)#update loss for a faithful likelihood ratio
+                
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces

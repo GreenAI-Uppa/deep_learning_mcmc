@@ -1,5 +1,5 @@
-# integration de l'optimiseur mcmc sur un device
-# CIFAR10 -> batch de 128 -> optimiseur *200 -> à chaque acceptation envoie vers un autre
+# J4
+
 import asyncio
 import sys
 import time 
@@ -17,7 +17,6 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_fn = torch.nn.CrossEntropyLoss()
 
 params = {
-        "batch_size": 50000, 
         "epochs": 10,
         "exp_name": "mozer",
         "architecture": {
@@ -35,11 +34,6 @@ params = {
                        {"layer_distr" :0.5, "get_idx":"get_idces_filter_conv"},
                        {"layer_distr" :0.5, "get_idx":"get_idces_uniform_linear","get_idx_param":363}]
                 },
-                "samplers" : [
-                    {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000},
-                    {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000}
-                ],
-                "iter_mcmc" : 10
         },
 	"dataset": "CIFAR",
 	"measure_power": 0
@@ -82,9 +76,9 @@ async def init_client(queue):
         queue.task_done()
         
         
-# pour la j4 -> aoivr CIFAR10 dans un dossier
 # datasets
 def init_data():
+    '''Create train and test CIFAR10 dataset'''
     training_data = datasets.CIFAR10(root=".",
         train=True,
         download=True,
@@ -95,14 +89,13 @@ def init_data():
         download=True,
         transform=ToTensor())
     return DataLoader(training_data, batch_size=BATCH_SIZE, num_workers=16), DataLoader(test_data, batch_size=50000, num_workers=16)
-### fin dataset
 
 def init_model():
     '''init our convnet'''
     return nets.ConvNet(32, CHANNELS, binary_flags=[False, False],  activations=["ReLU", "Softmax"], pruning_level = 0)
 
 def set_config():
-    '''set config for mcmc'''
+    '''parse config var for mcmc architecture & optimizer'''
     config = {'name': params['optimizer']['selector']['name'], 'layer_conf':[]}
     for layer_conf in params['optimizer']['selector']['layer_conf']:
         layer_distr = layer_conf['layer_distr']
@@ -124,8 +117,8 @@ async def train_model(queue):
     
     
     config = set_config()
-    samplers = stats.build_samplers(sp) # tire un échantillons qui suit une loi de student selon les paramètres donnés
-    select =  selector.build_selector(config) # renvoie n poids du layer tirés aléatoirement
+    samplers = stats.build_samplers(sp) 
+    select =  selector.build_selector(config) 
     optimizer = optimizers.MCMCOptimizer(
         sampler=samplers,
         iter_mcmc=200,
@@ -137,13 +130,13 @@ async def train_model(queue):
     print("Start training\n")
     
     _ = await optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=False)
-    optimizer.doc.close()
+    optimizer.doc.close() # close log file after finishing training
 
 async def main():
     """
-    2 taches effectuées en concurrence:
-    - entrainement d'un mcmc sur 200 itérations => remplit une queue
-    - création du client, connexion au serveur et surtout envoie des données de la queue à celui ci
+    2 concurrency task are running:
+    - 200 mcmc iteration training our model => feed the queue_to_send
+    - client creation, connection to p8 server and consume the queue by sending to it
     """
     global latency
     
