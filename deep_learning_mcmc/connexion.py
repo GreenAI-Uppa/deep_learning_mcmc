@@ -1,7 +1,6 @@
 import asyncio
-import time
 import sys
-
+import time
 
 class Connect():
     """
@@ -61,6 +60,14 @@ class Connect():
         self.stop_string = '__stop'.encode()
         
     async def sending(self, writer):
+        """sending data to tcp socket
+
+        Args:
+            writer (_type_): writer object from asyncio
+
+        Returns:
+            bool: continue while loop to send again data or not
+        """
         data_to_send = await self.sending_queue.get()
         continue_while_loop = '__stop' not in data_to_send
         data_to_send = f'{data_to_send}__fin__'.encode()
@@ -77,6 +84,11 @@ class Connect():
         return continue_while_loop
         
     async def reading(self, reader):
+        """reading data from tcp socket
+
+        Args:
+            reader (_type_): reader object from asyncio
+        """
         new = True 
         i=0
         to_send = b''
@@ -116,6 +128,7 @@ class Connect():
                     break
                 
     def _details(self, i, byte_size, envoie, lecture, t0, t1): # -> Connect
+        '''print details during reading data'''
         print(f'''
 --------------------------------
 |Nouvelle Entrée               |
@@ -137,6 +150,7 @@ class Client(Connect):
             raise ValueError("define client with reading or sending")
     
     async def start(self):
+        '''start tcp client'''
         self.reader, self.writer = await asyncio.open_connection(*self.connect_to)
         print(f'{self.local_name} client connected to {self.connect_to}')
         
@@ -151,6 +165,7 @@ class Client(Connect):
             print("end of writing__")
         
     async def declare(self):
+        '''declare client to server with a tcp send with its local name'''
         self.writer.write(self.local_name.encode())
         await self.writer.drain()
         
@@ -164,12 +179,18 @@ class Serveur(Connect):
         self.stop_string = '__stop'.encode()
         
     async def start(self):
+        '''start tcp server'''
         server = await asyncio.start_server(self.handle_client, *self.address) # -> création du serveur
         async with server:
             await server.serve_forever()
         
     async def handle_client(self, reader, writer):
-        
+        """applied function to each client connected to server
+
+        Args:
+            reader (_type_): reading object from asyncio
+            writer (_type_): writing object from asyncio
+        """
         addr = writer.get_extra_info('peername')[0] # -> get client ip
         print(f"New connection from {addr}")
 

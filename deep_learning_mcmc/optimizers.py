@@ -411,8 +411,6 @@ class Acceptance_ratio():
 
 
 class AsyncMcmcOptimizer(MCMCOptimizer):
-    
-    
     def __init__(
         self,
         sampler,
@@ -468,7 +466,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
                 num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
                 X = X.to(device)
                 y = y.to(device)
-                acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose, activation_layer=activation_layer)
+                acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=loss_fn, verbose=verbose, activation_layer=activation_layer)
                 self.reading_queue.task_done()
                 
                 # ajouter une condition d'arret de la boucle
@@ -486,7 +484,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
             X = X.to(device)
             y = y.to(device)
-            acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose, activation_layer=activation_layer)
+            acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=loss_fn, verbose=verbose, activation_layer=activation_layer)
         return acceptance_ratio
 
     async def train_1_batch(self, X, y, model, loss_fn, verbose=False, activation_layer=None):
