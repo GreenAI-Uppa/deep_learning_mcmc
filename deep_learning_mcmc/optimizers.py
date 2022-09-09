@@ -412,6 +412,7 @@ class Acceptance_ratio():
 
 class AsyncMcmcOptimizer(MCMCOptimizer):
     
+    
     def __init__(
         self,
         sampler,
@@ -580,7 +581,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
                 break
 
         print(f'200 mcmc time: {time.time()-t0:,}s')
-        if self.sending_queue.qsize() > 20:
+        if self.sending_queue and self.sending_queue.qsize() > 20:
             print('sleeping 80s because too long queue')
             await asyncio.sleep(20*4)
 

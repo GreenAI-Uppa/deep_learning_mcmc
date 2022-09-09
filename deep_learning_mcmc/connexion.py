@@ -2,17 +2,56 @@ import asyncio
 import time
 import sys
 
-'''
-common function as write or read ? or check stop ?
-
-cl = Client(connect_to=("0.0.0.0", 5000))
-cl.start()
-
-sv = Serveur = (reception_from=("0.0.0.0", 5000), sending_to=("0.0.0.0", 5000))
-sv.start()
-'''
 
 class Connect():
+    """
+    A root class to send / read data based on asyncio tcp sockets
+    ...
+    Attributes
+    ----------
+    local_name: str
+        name of the machina (allow the sender to identify itself)
+    reading_queue: asyncio.Queue
+        Buffer with reading data accumulated in
+    sending_queue: asyncio.Queue
+        Buffer with sending data accumulated in
+    log_latency: _io.TextIOWrapper
+        writing object to log latency
+    verbose: bool
+        print logs or not
+        
+    Methods
+    -------
+        wip
+        
+    Examples
+    --------
+    declare server
+    
+    >>> sv = connexion.Serveur(
+        local_name="p8",
+        sending_queue=sending_queue,
+        reading_queue=reading_queue,
+        log_latency=latency,
+        read_from="j4",
+        send_to="p4",
+        verbose=True
+    )
+    >>> await sv.start()
+    New connection from 10.0.12.21
+    New connection from 10.0.12.239
+
+    declare client
+    >>> cl = connexion.Client(
+        local_name="j4",
+        connect_to=("10.0.12.18", 5000),
+        sending_queue=queue_to_send,
+        log_latency=latency,
+        verbose=True
+    )
+    >>> cl.start()
+    j4 client connected to ('10.0.12.18', 5000)
+    """
     def __init__(self, local_name, reading_queue=None, sending_queue=None, log_latency=None, verbose=False):
         self.local_name = local_name
         self.reading_queue = reading_queue
