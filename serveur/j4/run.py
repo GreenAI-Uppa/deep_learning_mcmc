@@ -1,5 +1,4 @@
 # J4
-
 import asyncio
 import sys
 import time 
@@ -9,7 +8,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
-from deep_learning_mcmc import nets, optimizers, selector, stats
+from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
 BATCH_SIZE = 64
 CHANNELS = 3
@@ -44,38 +43,6 @@ sp = [
     {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000}
 ]
 
-
-async def init_client(queue):
-    """echo data to server"""
-    # p8 = 'localhost' # local version
-    p8 = '10.0.12.18'
-    _, writer = await asyncio.open_connection(p8, 5000) # -> ouverture de la connexion avec le serveur
-    print(f'client connected to {p8}')
-    writer.write('j4'.encode())
-    await writer.drain()
-    
-    while True:
-        to_send = await queue.get()
-
-        if to_send == '__stop__':
-            print('fin')
-            writer.write(to_send.encode()) # -> mettre le encode dans un nouveau process vu que c'est lourd !!!!!!
-            await writer.drain()
-            writer.close()
-            break
-        else:
-            data = f'{to_send}__fin__'.encode()
-            print(f'''\nsending {sys.getsizeof(data):,} Bytes | {queue.qsize():>3} in queue\n-------------''')
-
-            t0 = time.time()
-            writer.write(data) # -> mettre le encode dans un nouveau process vu que c'est lourd !!!!!!
-            await writer.drain()
-            print(f'writing time: {time.time()-t0}')
-            
-        print('! sent')
-        queue.task_done()
-        
-        
 # datasets
 def init_data():
     '''Create train and test CIFAR10 dataset'''
@@ -92,7 +59,7 @@ def init_data():
 
 def init_model():
     '''init our convnet'''
-    return nets.ConvNet(32, CHANNELS, binary_flags=[False, False],  activations=["ReLU", "Softmax"], pruning_level = 0)
+    return nets.ConvNet(32, CHANNELS, binary_flags=[False, False],  activations=["ReLU", "Softmax"], pruning_level = 0, padding=0, stride=3)
 
 def set_config():
     '''parse config var for mcmc architecture & optimizer'''
@@ -119,17 +86,24 @@ async def train_model(queue):
     config = set_config()
     samplers = stats.build_samplers(sp) 
     select =  selector.build_selector(config) 
-    optimizer = optimizers.MCMCOptimizer(
+    optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
         iter_mcmc=200,
         prior=samplers,
         selector=select,
         pruning_level=0,
-        queue=queue
+        sending_queue=queue,
+        log_path="/home/gdev/tmp/mcmc/data"
     )
     print("Start training\n")
     
-    _ = await optimizer.train_1_epoch(train_dataloader, model, loss_fn, verbose=False)
+    _ = await optimizer.train_1_epoch(
+        dataloader=train_dataloader,
+        model=model,
+        loss_fn=loss_fn,
+        verbose=False,
+        activation_layer="conv1"
+    )
     optimizer.doc.close() # close log file after finishing training
 
 async def main():
@@ -148,15 +122,24 @@ async def main():
     latency.write("0;0\n")
     latency.flush()
     
+    cl = connexion.Client(
+        local_name="j4",
+        connect_to=("10.0.12.18", 5000),
+        sending_queue=queue_to_send,
+        log_latency=latency,
+        verbose=True
+    )
+    
     # concurrent tasks: producer vs consumer
     trainer = asyncio.create_task(train_model(queue_to_send))
-    client = asyncio.create_task(init_client(queue_to_send))
+    client = asyncio.create_task(cl.start())
     
     await trainer
-    await queue_to_send.put('__stop__')
+    print('fin trainer')
+    await queue_to_send.put('__stop')
     await client
     
-    await queue_to_send.join()    
+    await queue_to_send.join()
     latency.close()
     print('fin')
     

@@ -5,4 +5,7 @@ setup(name='deep_learning_mcmc',
       )
 install_requires=[
        'numpy',
+       'torch',
+       'torchvision',
+       'scipy'
    ]

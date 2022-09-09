@@ -33,8 +33,6 @@ def get_block_weight_index(params):
     return get_idx
 
 
-    
-
 
 def get_idces_uniform_linear(neighborhood_size):
     """
@@ -42,12 +40,33 @@ def get_idces_uniform_linear(neighborhood_size):
     """
     def get_idx(layer):
         n_output, n_input = layer.weight.data.shape
+        n_input+=1
         layer_size = n_output * n_input
         if neighborhood_size > layer_size:
             raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(layer_size)+"\n neighborhood_size should be lower than this number")
         a, b = torch.arange(n_output), torch.arange(n_input)
         idces_w = torch.cat((a.repeat(n_input).reshape(layer_size,1),b.repeat_interleave(n_output).reshape(layer_size,1)), dim=1)
         idces_of_idces = list(range(layer_size))
+        random.shuffle(idces_of_idces)
+        idces_of_idces  = idces_of_idces[:neighborhood_size]
+        idces_w = idces_w[idces_of_idces,:].long()
+        idces_b = idces_w[idces_w[:,1]==(n_input-1)][:,0]
+        idces_w = idces_w[idces_w[:,1]<(n_input-1)]
+        return idces_w, idces_b
+    return get_idx
+
+def get_idces_linear_square(square_side):
+    """
+    select neighborhood_size weights from a linear layer according to a uniform law
+    """
+    def get_idx(layer):
+        n_output, n_input = layer.weight.data.shape
+        f_size = n_output * n_input
+        if neighborhood_size > f_size:
+            raise Exception("neighborhood_size is "+str(neighborhood_size)+" but number of parameters in the filter is "+str(f_size)+"\n neighborhood_size should be lower than this number")
+        a, b = torch.arange(n_output), torch.arange(n_input)
+        idces_w = torch.cat((a.repeat(n_input).reshape(f_size,1),b.repeat_interleave(n_output).reshape(f_size,1)), dim=1)
+        idces_of_idces = list(range(f_size))
         random.shuffle(idces_of_idces)
         idces_of_idces  = idces_of_idces[:neighborhood_size]
         idces_w = idces_w[idces_of_idces,:].long()

@@ -4,7 +4,7 @@ import time
 
 import torch
 
-from deep_learning_mcmc import nets, optimizers, selector, stats
+from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
 BATCH_SIZE = 128
 CHANNELS = 32
@@ -46,100 +46,12 @@ sp = [
 ]
 
 
-to_send = b''
-request = b''
-
-# rajouter un init pour la création du client / serveur
-
-async def sending_client(sending_queue):
-    p2 = '10.0.12.90'
-    # p2 = 'localhost' # ansabere
-    # _, writer = await asyncio.open_connection(p2, 4999) # -> ansabere
-    _, writer = await asyncio.open_connection(p2, 5000) # -> ouverture de la connexion avec le serveur
-    print(f'client connected to {p2}')
-    
-    writer.write('p4'.encode())
-    await writer.drain()
-    
-    while True:
-        data_to_send = await sending_queue.get()
-        data_to_send = f'{data_to_send}__fin__'.encode()
-        
-        print(f'sending: 1/{sending_queue.qsize()+1:,}')
-        writer.write(data_to_send)
-        await writer.drain()
-        print('one sent')
-        
-        sending_queue.task_done()
-
-async def reading_client(reading_queue):
-    """echo data to server"""
-    global to_send
-    global request
-    global latency
-    
-    p8 = '10.0.12.18'
-    # p8 = 'localhost' # ansabere
-    reader, writerp8 = await asyncio.open_connection(p8, 5000) # -> ouverture de la connexion avec le serveur
-    print(f'client connected to {p8}')
-    
-    writerp8.write('p4'.encode())
-    await writerp8.drain()
-    
-    new = True 
-    i=0
-    while ('__stop__' not in request.decode()): 
-        request = await reader.read(1024) # -> va lire un packet de bytes du buffer de la socket
-        i+=1 
-        # calcul du temps de reception
-        if new:
-            t0 = time.time()
-            new = False
-        to_send += request # -> stocke le message reçu dans une variable globale 
-        
-        if (i % 2500 == 0 ): # moins lourd que de tester le decode() 2500 fois
-            full_data = to_send.decode()
-            if "__fin__" in full_data:
-                lecture = time.time()
-                
-                # decoding
-                d = full_data.split('__fin__')
-                data = eval(d[0])
-                
-                envoie = time.time()
-                
-                # ajout des données à la queue
-                await reading_queue.put(data) 
-                    
-                print(
-                    f'''
---------------------------------
-|Nouvelle Entrée               |
-|------------------------------|
-|i               : {i:<12,}|
-|size            : {sys.getsizeof(to_send):<12,}|
-|envoie          : {round(envoie-data[2],2):<12,}|
-|lecture         : {round(lecture-t0,2):<12,}|
-|taille buffer   : {reading_queue.qsize():<12,}|
---------------------------------''')
-                latency.write(f'{lecture-t0};{envoie-data[2]}\n')
-                latency.flush()
-                i = 0
-                
-                to_send = d[1].encode()
-                new = True
-            
-        if "__stop__" in to_send.decode():
-            print("stop__")
-            break
-        
-
 def init_model():
     '''
     On passe ici à une conv sans stride avec un padding de 5
     TODO: ajouter des paramêtres (kwargs par ex) pour la gestion du pading / stride / taille filtre 
     '''
-    return nets.ConvNet(32, CHANNELS, binary_flags=[False, False],  activations=["ReLU", "Softmax"], pruning_level = 0)
+    return nets.ConvNet(32, CHANNELS, binary_flags=[False, False],  activations=["ReLU", "Softmax"], pruning_level = 0, padding=5, stride=1)
 
 def set_config():
     '''set config for mcmc'''
@@ -164,31 +76,46 @@ async def trainer(reading_queue, sending_queue):
     
     samplers = stats.build_samplers(sp) # tire un échantillons qui suit une loi de student selon les paramètres donnés
     select =  selector.build_selector(config) # renvoie n poids du layer tirés aléatoirement
-    optimizer = optimizers.MCMCOptimizer(
+    optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
         iter_mcmc=200,
         prior=samplers,
         selector=select,
         pruning_level=0,
         sending_queue=sending_queue,
-        reading_queue=reading_queue # voir pour la lecture des données sur la manière de s'y prendre
+        reading_queue=reading_queue, # voir pour la lecture des données sur la manière de s'y prendre
+        log_path="/home/gdev/tmp/mcmc/data"
     )
     print("Start training\n")
     
-    _ = await optimizer.train_1_epoch(model, loss_fn, verbose=False)
+    _ = await optimizer.train_1_epoch(model=model, loss_fn=loss_fn, verbose=False, activation_layer="conv1")
 
             
 async def main():
     reading_queue = asyncio.Queue()
     sending_queue = asyncio.Queue()
     
-    global latency
     latency = open("/home/gdev/tmp/mcmc/latency", "w")
     latency.write("lecture;envoie\n")
     
+    cl1 = connexion.Client(
+        local_name="p4",
+        connect_to=('10.0.12.18', 5000),
+        reading_queue=reading_queue,
+        log_latency=latency,
+        verbose=True
+    )
+    cl2 = connexion.Client(
+        local_name="p4",
+        connect_to=('10.0.12.90', 5000),
+        sending_queue=sending_queue,
+        log_latency=latency,
+        verbose=True
+    )
+    
     # définition des taches
-    reader = asyncio.create_task(reading_client(reading_queue=reading_queue))
-    sender = asyncio.create_task(sending_client(sending_queue=sending_queue))
+    reader = asyncio.create_task(cl1.start())
+    sender = asyncio.create_task(cl2.start())
     runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))
 
 

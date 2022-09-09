@@ -1,14 +1,19 @@
 """optimizers contains gradient and mcmc optimizers and the main loop content
 to train the network"""
+import asyncio
 import collections
-from abc import ABC, abstractmethod
-import torch
-import numpy as np
-from deep_learning_mcmc import nets
-from torchvision import datasets
-from torch.utils.data import DataLoader
-from torchvision.transforms import ToTensor
 import copy
+import time
+from abc import ABC, abstractmethod
+
+import numpy as np
+import torch
+from torch.utils.data import DataLoader
+from torchvision import datasets
+from torchvision.transforms import ToTensor
+
+from deep_learning_mcmc import nets, pruning
+
 
 class Optimizer(ABC):
     """Generic optimizer interface"""
@@ -220,7 +225,16 @@ class BinaryConnectOptimizer(Optimizer):
 
 
 class MCMCOptimizer(Optimizer):
-    def __init__(self, sampler, data_points_max = 1000000000, iter_mcmc=1, lamb=1000,  prior=None, selector=None, pruning_level=0):
+    def __init__(
+        self,
+        sampler,
+        data_points_max = 1000000000,
+        iter_mcmc=1,
+        lamb=1000,
+        prior=None,
+        selector=None,
+        pruning_level=0,
+    ):
         """
         variance_prop : zero centered univariate student law class to generate the proposals
         variance_prior : zero centered univariate student law class used as a prior on the parameter values
@@ -232,12 +246,9 @@ class MCMCOptimizer(Optimizer):
         self.lamb = lamb
         self.sampler = sampler
         self.pruning_level = pruning_level
-        if prior is None:
-            self.prior = self.sampler
-        else:
-            self.prior = prior
+        self.prior = self.sampler if prior is None else prior
         self.selector = selector
-
+        
     def train_1_epoch(self, dataloader, model, loss_fn, verbose=False):
         """
         train for 1 epoch and collect the acceptance ratio
@@ -245,7 +256,7 @@ class MCMCOptimizer(Optimizer):
         num_items_read = 0
         acceptance_ratio = Acceptance_ratio()
         device = next(model.parameters()).device
-        for _, (X, y) in enumerate(dataloader):
+        for X, y in dataloader:
             if self.data_points_max <= num_items_read:
                 break
             X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
@@ -255,8 +266,26 @@ class MCMCOptimizer(Optimizer):
             y = y.to(device)
             acceptance_ratio += self.train_1_batch(X, y, model, dataloader, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose)
         return acceptance_ratio
+    
+    def get_prunned_data(self, model):
+        if self.pruning_level>0:
+            self.Pruner = pruning.MCMCPruner()
+            self.relevance_dict_conv_layer = {cle: 0 for cle in range(model.conv1.weight.data.shape[0])}
+            relevance_dict_linear_layer_w = torch.zeros(model.fc1.weight.data.shape)
+            relevance_dict_linear_layer_b = torch.zeros(model.fc1.bias.data.shape[0],1)
+            self.relevance_dict_linear_layer = {'weight':relevance_dict_linear_layer_w, 'bias':relevance_dict_linear_layer_b}
+        return None
 
-    def train_1_batch(self, X, y, model, dataloader, loss_fn, verbose=False):
+    def prune_iter(self, model):
+        print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+        print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
+        print('Skeletonization...')
+        self.Pruner.skeletonize_conv(model,self.pruning_level,self.relevance_dict_conv_layer)
+        self.Pruner.skeletonize_fc(model,self.pruning_level,self.relevance_dict_linear_layer)
+        print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+        print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
+
+    def train_1_batch(self, X, y, model, loss_fn, verbose=False):
         """
         perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
 
@@ -277,15 +306,15 @@ class MCMCOptimizer(Optimizer):
         ar = Acceptance_ratio()
         pred = model(X)
         loss = loss_fn(pred,y).item()
-        if self.pruning_level>0:
-            test_data = datasets.CIFAR10(root='../data',
-            train=False,
-            download=True,
-            transform=ToTensor())
-            pruning_dataloader = DataLoader(test_data, batch_size=64, num_workers=8)
+        
+        self.get_prunned_data(model=model)
+        
         for i in range(self.iter_mcmc):
+            #print(i)
             if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
-                skeletonization(model,self.pruning_level,pruning_dataloader)
+                print(i)
+                self.prune_iter(model=model)
+                loss = loss_fn(model(X),y)#update loss for a faithful likelihood ratio
             # selecting a layer and a  at random
             layer_idx, idces = self.selector.get_neighborhood(model)
             neighborhood = layer_idx, idces
@@ -303,8 +332,9 @@ class MCMCOptimizer(Optimizer):
             # computing the change in the loss
             lamb = self.sampler.get_lambda(self.selector.neighborhood_info)
             data_term = torch.exp(lamb * (loss -loss_prop))
-
             rho  = min(1, data_term * student_ratio)
+            #print('rho for layer',layer_idx,'=', torch.tensor(rho).item())
+            #print('data term = ',data_term.item(),'student ratio =', student_ratio.item())
             if verbose:
                 print(i,'moove layer',layer_idx,'rho=',float(rho),'data term=',float(data_term),'ratio=',float(student_ratio),'| ','loss_prop',float(loss_prop),'loss gain',float(loss-loss_prop))
             key = self.selector.get_proposal_as_string(neighborhood)
@@ -314,12 +344,22 @@ class MCMCOptimizer(Optimizer):
                 ar.incr_acc_count(key)
                 loss = loss_prop
                 decision = 'accepted'
+                #print('moove layer',layer_idx,' accepted')
+                if layer_idx == 0 and self.pruning_level >0:
+                    self.relevance_dict_conv_layer[int(idces[0][0][0])]+=1
+                if layer_idx == 1 and self.pruning_level >0:
+                    self.relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] +=1
+                    self.relevance_dict_linear_layer['bias'][idces[1]] +=1
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
                 decision = 'rejected'
             if verbose:
                 print('moove',decision)
+            #print('non-zero values for conv layer =',torch.count_nonzero(model.conv1.weight.data))
+            #print('Pruning level for conv layer',1-torch.count_nonzero(model.conv1.weight.data).item()/23232)
+            #print('non-zero values for FC layer =',torch.count_nonzero(model.fc1.weight.data))
+            #print('Pruning level for FC layer =',1-torch.count_nonzero(model.fc1.weight.data).item()/40960)
         return ar
 
 
@@ -367,3 +407,183 @@ class Acceptance_ratio():
         for k, v in self.proposal_count.items():
             result.append(k + ": " + str(self.proposal_accepted[k]/v))
         return '\n'.join(result)
+
+
+
+class AsyncMcmcOptimizer(MCMCOptimizer):
+    
+    def __init__(
+        self,
+        sampler,
+        data_points_max=1000000000,
+        iter_mcmc=1,
+        lamb=1000,
+        prior=None,
+        selector=None,
+        pruning_level=0,
+        log_path=None,
+        sending_queue=None,
+        reading_queue=None
+    ):
+        super().__init__(sampler, data_points_max, iter_mcmc, lamb, prior, selector, pruning_level)
+        self.activation = {} # save conv output and store it in queue
+        self.doc = open(log_path, 'w') if log_path else None# log file
+        self.id_batch = 9999999 # save batch id 
+        self.x = 0 # count iterations
+        self.sending_queue = sending_queue # client writer to send data to server
+        self.reading_queue = reading_queue
+        
+    def get_activation(self, name):
+        def hook(model, input, output):
+            self.activation[name] = output.detach()
+        return hook
+    
+    async def train_1_epoch(self, model, loss_fn, dataloader=None, verbose=False, activation_layer=None):
+        """
+        train for 1 epoch and collect the acceptance ratio
+        dataloader => only for the first one (j4)
+        """
+        if activation_layer:
+            model.conv1.register_forward_hook(self.get_activation(activation_layer))
+        num_items_read = 0
+        acceptance_ratio = Acceptance_ratio()
+        device = next(model.parameters()).device
+        
+        if self.doc:
+            self.doc.write(f'id_batch;loss;conv;dense;x\n')
+        
+        if self.reading_queue:
+            while True: # TODO: définir un arret avec break if __stop par ex
+                data = await self.reading_queue.get()
+                X, y = torch.tensor(data[0]), torch.tensor(data[1])
+                if self.id_batch != data[3]:
+                    self.x = 0
+                self.id_batch = data[3] 
+                
+                if self.data_points_max <= num_items_read:
+                    break
+                X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
+                y = y[:min(self.data_points_max - num_items_read, X.shape[0])]
+                num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
+                X = X.to(device)
+                y = y.to(device)
+                acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose, activation_layer=activation_layer)
+                self.reading_queue.task_done()
+                
+                # ajouter une condition d'arret de la boucle
+            return acceptance_ratio
+
+        for id_batch, (X, y) in enumerate(dataloader):
+            if self.id_batch != id_batch:
+                self.x = 0
+            self.id_batch = id_batch # permet l'écriture et le suivi de ce batch
+            
+            if self.data_points_max <= num_items_read:
+                break
+            X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
+            y = y[:min(self.data_points_max - num_items_read, X.shape[0])]
+            num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
+            X = X.to(device)
+            y = y.to(device)
+            acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=torch.nn.CrossEntropyLoss(), verbose=verbose, activation_layer=activation_layer)
+        return acceptance_ratio
+
+    async def train_1_batch(self, X, y, model, loss_fn, verbose=False, activation_layer=None):
+        """
+        perform mcmc iterations with a neighborhood corresponding to one line of the parameters.
+
+        the acceptance of the proposal depends on the following criterion
+           exp(lamb * (loss_previous - loss_prop) ) * stud(params_prop) / stud(params_previous)
+
+        inputs:
+        X : input data
+        y : input labels
+        model : neural net we want to optimize
+        loss_fn : loss function
+
+        outputs:
+        acceptance_ratio
+        model : optimised model (modified by reference)
+        """
+        device = next(model.parameters()).device
+        ar = Acceptance_ratio()
+        pred = model(X)
+        loss = loss_fn(pred,y).item()
+
+        self.get_prunned_data(model=model)
+
+        # store time to measure latency
+        t0 = time.time()
+
+        for i in range(self.iter_mcmc):
+            if i>0 and self.pruning_level>0 and i%200 == 0:#skeletonize any 50 mcmc iterations
+                print(i)
+                self.prune_iter(model=model)
+                loss = loss_fn(model(X),y)#update loss for a faithful likelihood ratio
+
+            # selecting a layer and a  at random
+            layer_idx, idces = self.selector.get_neighborhood(model)
+            neighborhood = layer_idx, idces
+            params_line = self.selector.getParamLine(neighborhood, model)
+            epsilon = self.sampler.sample(self.selector.neighborhood_info)
+            if epsilon is not None:
+                epsilon = torch.tensor(epsilon.astype('float32')).to(device)
+
+            # getting the ratio of the students
+            student_ratio = self.prior.get_ratio(epsilon, params_line, self.selector.neighborhood_info)
+
+            # applying the changes to get the new value of the loss
+            self.selector.update(model, neighborhood, epsilon)
+            pred = model(X)
+            loss_prop = loss_fn(pred, y)
+
+            # computing the change in the loss
+            lamb = self.sampler.get_lambda(self.selector.neighborhood_info)
+            data_term = torch.exp(lamb * (loss -loss_prop))
+            rho  = min(1, data_term * student_ratio)
+            if verbose:
+                print(i,'moove layer',layer_idx,'rho=',float(rho),'data term=',float(data_term),'ratio=',float(student_ratio),'| ','loss_prop',float(loss_prop),'loss gain',float(loss-loss_prop))
+            key = self.selector.get_proposal_as_string(neighborhood)
+            ar.incr_prop_count(key) # recording so that we can later compute the acceptance ratio
+            if rho > torch.rand(1).to(device):
+                # accepting, keeping the new value of the loss
+                ar.incr_acc_count(key)
+                loss = loss_prop
+                decision = 'accepted'
+
+
+                if layer_idx == 0 and self.pruning_level >0:
+                    self.relevance_dict_conv_layer[int(idces[0][0][0])]+=1
+                if layer_idx == 1 and self.pruning_level >0:
+                    self.relevance_dict_linear_layer['weight'][idces[0][:,0],idces[0][:,1]] +=1
+                    self.relevance_dict_linear_layer['bias'][idces[1]] +=1
+
+                if layer_idx == 0 and self.sending_queue and activation_layer:
+                    to_send = (self.activation.get(activation_layer).tolist(), y.tolist(), time.time(), self.id_batch) # récupérer la sortie de la première couche de convolution apres model(X)
+                    await self.sending_queue.put(to_send)
+            else:
+                # not accepting, so undoing the change
+                self.selector.undo(model, neighborhood, epsilon)
+                decision = 'rejected'
+            if verbose:
+                print('moove',decision)
+
+            if activation_layer:
+                self.doc.write(f'{self.id_batch};{loss};{ar.to_dict().get("layer_0")};{ar.to_dict().get("layer_1")};{self.x}\n')
+            else:
+                self.doc.write(f'{self.id_batch};{loss};0;{ar.to_dict().get("layer_0")};{self.x}\n')
+                
+            self.doc.flush()
+            self.x += 1
+            await asyncio.sleep(.1)
+            if self.reading_queue and self.reading_queue.qsize() > 0:
+                break
+
+        print(f'200 mcmc time: {time.time()-t0:,}s')
+        if self.sending_queue.qsize() > 20:
+            print('sleeping 80s because too long queue')
+            await asyncio.sleep(20*4)
+
+        return ar
+
+

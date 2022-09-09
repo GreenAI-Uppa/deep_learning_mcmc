@@ -2,6 +2,7 @@ import numpy as np
 import functools
 from operator import mul
 import math
+import scipy.stats
 import sys
 current_module = sys.modules[__name__]
 
@@ -22,7 +23,7 @@ def build_samplers(config):
 def build_sampler(config):
     """build 1 sampler or prior"""
     selector_name = config["name"]
-    if selector_name == "Student":
+    if selector_name == "Student" or selector_name == "Gaussian":
         variance = config["variance"]
         return getattr(current_module, selector_name)(variance)
     elif selector_name=="BinarySampler":
@@ -32,6 +33,9 @@ class SamplerList(object):
     def __init__(self, samplers, lambdas):
         self.samplers = samplers
         self.lambdas = lambdas
+
+    def __getitem__(self, key):
+        return self.samplers[key]
 
     def get_lambda(self, neighborhood):
         """return the lambda value given the layer index"""
@@ -75,7 +79,7 @@ class Student(object):
     def sample(self, n=1):
         '''
         Output:
-        Produce M samples of d-dimensional multivariate t distribution
+        Produce n samples of d-dimensional multivariate t distribution
         Input:
         n = # of samples to produce
         '''
@@ -127,6 +131,55 @@ class Student(object):
 
         # get the likelihood of the theta tilde
         num = self.t_distribution_fast(params_tilde)
+
+        ratio = num / den
+        return functools.reduce(mul, ratio, 1)
+
+class Gaussian(object):
+    """
+    univariate student distribution
+    """
+    def __init__(self, s, m=0):
+        """
+        s : variance
+        m : mean
+        df : degree of freedom
+        """
+        self.m = m
+        self.d = 1 # univariate
+        self.S = np.eye(1) * s
+    def sample(self, n=1):
+        '''
+        Output:
+        Produce M samples of d-dimensional multivariate t distribution
+        Input:
+        n = # of samples to produce
+        '''
+        Z = np.random.multivariate_normal(np.zeros(self.d),self.S,n)
+        return (self.m + Z).reshape(n,)
+
+    def gaussian_distribution(self, x):
+        '''
+        for use when computing the likelihood of multiples univariate variables
+        '''
+        rv = scipy.stats.multivariate_normal(self.m,self.S)
+        return rv.pdf(x)
+
+    def get_ratio(self, epsilon, params):
+        """
+        compute the likelihood ratio of two variables
+           student(params[i] + epsilon[i])
+        Prod_i (   ------------------------      )
+               student(params[i])
+        """
+        #apply the move to get theta tilde
+        params_tilde = params + epsilon
+
+        # get the likelihood of the theta
+        den = self.gaussian_distribution(params)
+
+        # get the likelihood of the theta tilde
+        num = self.gaussian_distribution(params_tilde)
 
         ratio = num / den
         return functools.reduce(mul, ratio, 1)
