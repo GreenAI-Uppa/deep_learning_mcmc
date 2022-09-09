@@ -70,10 +70,14 @@ while True:
     # latency 
     # ==============================================================================
     # col_bj4, col_bp8, col_bp4, col_bp2, col_bj2 -> print last latency ?
-    for col, name in zip([col_bj4, col_bp8, col_bp4, col_bp2, col_bj2], names):
+    l = [[latencies.get(name)['lecture'].tolist()[-1], latencies.get(name)['envoie'].tolist()[-1]] for name in names]
+        
+    l = [[l[a][0], l[a+1][1]] for a in range(len(l)) if a < (len(l)-1)] + [[l[len(l)-1][0], l[0][1]]]
+
+    for col, name, lat in zip([col_bj4, col_bp8, col_bp4, col_bp2, col_bj2], names, l):
         with col as c:
             # select last one and print
-            st.metric(label=f"{name} latency", value=latencies.get(name)['lecture'].tolist()[-1], delta=latencies.get(name)['envoie'].tolist()[-1], delta_color="off")
+            st.metric(label=f"{name} latency (in s)", value=round(lat[0],2), delta=round(lat[1],2), delta_color="off")
 
     # ==============================================================================
     # AR & Loss
@@ -82,7 +86,7 @@ while True:
                 color="variable", barmode="group")
     col_ar.write(fig)
     
-    fig = px.line(df_loss[df_loss.id_batch == 0], x='x', y='loss', color='device', symbol="device")
+    fig = px.line(df_loss, x='x', y='loss', color='device', symbol="device")
     # loss par batch c'est mieux !!!!
     col_loss.write(fig)
     

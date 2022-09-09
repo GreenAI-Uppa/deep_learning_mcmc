@@ -452,11 +452,11 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             self.doc.write(f'id_batch;loss;conv;dense;x\n')
         
         if self.reading_queue:
+            self.x = 0
             while True: # TODO: définir un arret avec break if __stop par ex
                 data = await self.reading_queue.get()
                 X, y = torch.tensor(data[0]), torch.tensor(data[1])
-                if self.id_batch != data[3]:
-                    self.x = 0
+                # if self.id_batch != data[3]:
                 self.id_batch = data[3] 
                 
                 if self.data_points_max <= num_items_read:
@@ -472,9 +472,9 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
                 # ajouter une condition d'arret de la boucle
             return acceptance_ratio
 
+        self.x = 0
         for id_batch, (X, y) in enumerate(dataloader):
-            if self.id_batch != id_batch:
-                self.x = 0
+            # if self.id_batch != id_batch:
             self.id_batch = id_batch # permet l'écriture et le suivi de ce batch
             
             if self.data_points_max <= num_items_read:
@@ -575,6 +575,8 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             self.doc.flush()
             self.x += 1
             await asyncio.sleep(.1)
+            if decision == 'accepted':
+                break
             if self.reading_queue and self.reading_queue.qsize() > 0:
                 break
 

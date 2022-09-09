@@ -94,30 +94,17 @@ async def trainer(reading_queue, sending_queue):
 async def main():
     reading_queue = asyncio.Queue()
     sending_queue = asyncio.Queue()
-    
-    latency = open("/home/gdev/tmp/mcmc/latency", "w")
-    latency.write("lecture;envoie\n")
-    
-    sv = connexion.Serveur(
-        local_name="p2",
-        sending_queue=sending_queue,
-        reading_queue=reading_queue,
-        log_latency=latency,
-        read_from="p4",
-        send_to="j2",
-        verbose=True
-    )
-    
-    server = asyncio.create_task(sv.start())
-    runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))
-    
-    await runner
-    
-    await reading_queue.join()
-    await sending_queue.join()
-    
-    server.cancel()
-    latency.close()
+    with open("/home/gdev/tmp/mcmc/latency", "w") as latency:
+        latency.write("lecture;envoie\n")
+        sv = connexion.Serveur(local_name="p2", sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="p4", send_to="j2", verbose=True)
+
+        server = asyncio.create_task(sv.start())
+        runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))
+
+        await runner
+        await reading_queue.join()
+        await sending_queue.join()
+        server.cancel()
     print('fin')
 
 if __name__ == "__main__":

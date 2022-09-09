@@ -89,26 +89,15 @@ async def trainer(reading_queue):
 
 async def main():
     '''final output of mcmc modeling grappe'''
-    
     reading_queue = asyncio.Queue()
-    latency = open("/home/gdev/tmp/mcmc/latency", "w")
-    latency.write("lecture;envoie\n")
-    
-    cl = connexion.Client(
-        local_name="j2",
-        connect_to=('10.0.12.90', 5000),
-        reading_queue=reading_queue,
-        log_latency=latency,
-        verbose=True
-    )
-    
-    reader = asyncio.create_task(cl.start())
-    runner = asyncio.create_task(trainer(reading_queue=reading_queue))
-    
-    await reader
-    await runner
-    
-    latency.close()
+    with open("/home/gdev/tmp/mcmc/latency", "w") as latency:
+        latency.write("lecture;envoie\n")
+        cl = connexion.Client(local_name="j2", connect_to=('10.0.12.90', 5000), reading_queue=reading_queue, log_latency=latency, verbose=True)
+
+        reader = asyncio.create_task(cl.start())
+        runner = asyncio.create_task(trainer(reading_queue=reading_queue))
+        await reader
+        await runner
     print('fin d entrainement')
     
 if __name__ == "__main__":

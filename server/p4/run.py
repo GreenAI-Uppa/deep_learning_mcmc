@@ -94,36 +94,19 @@ async def trainer(reading_queue, sending_queue):
 async def main():
     reading_queue = asyncio.Queue()
     sending_queue = asyncio.Queue()
-    
-    latency = open("/home/gdev/tmp/mcmc/latency", "w")
-    latency.write("lecture;envoie\n")
-    
-    cl1 = connexion.Client(
-        local_name="p4",
-        connect_to=('10.0.12.18', 5000),
-        reading_queue=reading_queue,
-        log_latency=latency,
-        verbose=True
-    )
-    cl2 = connexion.Client(
-        local_name="p4",
-        connect_to=('10.0.12.90', 5000),
-        sending_queue=sending_queue,
-        log_latency=latency,
-        verbose=True
-    )
-    
-    # définition des taches
-    reader = asyncio.create_task(cl1.start())
-    sender = asyncio.create_task(cl2.start())
-    runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))
+    with open("/home/gdev/tmp/mcmc/latency", "w") as latency:
+        latency.write("lecture;envoie\n")
+        cl1 = connexion.Client(local_name="p4", connect_to=('10.0.12.18', 5000), reading_queue=reading_queue, log_latency=latency, verbose=True)
 
+        cl2 = connexion.Client(local_name="p4", connect_to=('10.0.12.90', 5000), sending_queue=sending_queue, log_latency=latency, verbose=True)
 
-    await runner 
-    await sender # faire une instruction de fin -> sortie de la boucle while une fois que c'est vide
-    
-    reader.cancel()
-    latency.close()
+        reader = asyncio.create_task(cl1.start())
+        sender = asyncio.create_task(cl2.start())
+        runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))
+
+        await runner
+        await sender
+        reader.cancel()
 
 if __name__ == "__main__":
     asyncio.run(main())

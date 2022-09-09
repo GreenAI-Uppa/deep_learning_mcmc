@@ -112,35 +112,20 @@ async def main():
     - 200 mcmc iteration training our model => feed the queue_to_send
     - client creation, connection to p8 server and consume the queue by sending to it
     """
-    global latency
-    
     queue_to_send = asyncio.Queue()
-    
-    # output latency logs
-    latency = open("/home/gdev/tmp/mcmc/latency", "w")
-    latency.write("lecture;envoie\n")
-    latency.write("0;0\n")
-    latency.flush()
-    
-    cl = connexion.Client(
-        local_name="j4",
-        connect_to=("10.0.12.18", 5000),
-        sending_queue=queue_to_send,
-        log_latency=latency,
-        verbose=True
-    )
-    
-    # concurrent tasks: producer vs consumer
-    trainer = asyncio.create_task(train_model(queue_to_send))
-    client = asyncio.create_task(cl.start())
-    
-    await trainer
-    print('fin trainer')
-    await queue_to_send.put('__stop')
-    await client
-    
-    await queue_to_send.join()
-    latency.close()
+    with open("/home/gdev/tmp/mcmc/latency", "w") as latency:
+        latency.write("lecture;envoie\n")
+        latency.write("0;0\n")
+        latency.flush()
+        cl = connexion.Client(local_name="j4", connect_to=("10.0.12.18", 5000), sending_queue=queue_to_send, log_latency=latency, verbose=True)
+
+        trainer = asyncio.create_task(train_model(queue_to_send))
+        client = asyncio.create_task(cl.start())
+        await trainer
+        print('fin trainer')
+        await queue_to_send.put('__stop')
+        await client
+        await queue_to_send.join()
     print('fin')
     
 
