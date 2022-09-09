@@ -134,9 +134,9 @@ class Connect():
 |Nouvelle Entrée               |
 |------------------------------|
 |i               : {i:<12,}|
-|size            : {byte_size:<12,}|
-|envoie          : {round(envoie-t1,2):<12,}|
-|lecture         : {round(lecture-t0,2):<12,}|
+|size            : {byte_size:<11,}B|
+|envoie          : {round(envoie-t1,2):<11,}s|
+|lecture         : {round(lecture-t0,2):<11,}s|
 |taille buffer   : {self.reading_queue.qsize():<12,}|
 --------------------------------''')
 

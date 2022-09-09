@@ -71,8 +71,7 @@ while True:
     # ==============================================================================
     # col_bj4, col_bp8, col_bp4, col_bp2, col_bj2 -> print last latency ?
     l = [[latencies.get(name)['lecture'].tolist()[-1], latencies.get(name)['envoie'].tolist()[-1]] for name in names]
-        
-    l = [[l[a][0], l[a+1][1]] for a in range(len(l)) if a < (len(l)-1)] + [[l[len(l)-1][0], l[0][1]]]
+    l = [[l[i][0],l[i-len(l)+1][1]] for i in range(len(l))]
 
     for col, name, lat in zip([col_bj4, col_bp8, col_bp4, col_bp2, col_bj2], names, l):
         with col as c:
