@@ -8,7 +8,7 @@ This directory is dedicated to the implementation of the mcmc optimizer on 5 sem
     - [How does it work?](#how-does-it-work)
   - [How to reproduce?](#how-to-reproduce)
     - [1. If you have access to the GreenAI cluster](#1-if-you-have-access-to-the-greenai-cluster)
-      - [Quick, I want the solution](#quick-i-want-the-solution)
+      - [Quick solution](#quick-solution)
       - [Detailed solution](#detailed-solution)
     - [2. If you don't have access to the GreenAI cluster](#2-if-you-dont-have-access-to-the-greenai-cluster)
   - [Notes](#notes)
@@ -53,7 +53,7 @@ The communication between the devices is one-way and linear. We, therefore, use 
 - run `server/update_scripts.sh` from the server directory to copy each script on its dedicated device
 - run `monitoring/mounting_data.sh` from the monitoring directory to mount each log file on its dedicated directory in order to run the streamlit dashboard on your own computer
 
-#### Quick, I want the solution
+#### Quick solution
 
 - Start an ssh connexion on each device with the gdev user. 
 - update the `~/deep_learning_mcmc` directory with `git pull` and run `pip install .`
