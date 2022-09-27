@@ -10,6 +10,7 @@ from torchvision.transforms import ToTensor
 
 from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
+PATH_LOG = "/home/gdev/tmp/mcmc"
 BATCH_SIZE = 64
 CHANNELS = 3
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -93,7 +94,7 @@ async def train_model(queue):
         selector=select,
         pruning_level=0,
         sending_queue=queue,
-        log_path="/home/gdev/tmp/mcmc/data"
+        log_path=f"{PATH_LOG}/data"
     )
     print("Start training\n")
     
@@ -113,11 +114,12 @@ async def main():
     - client creation, connection to p8 server and consume the queue by sending to it
     """
     queue_to_send = asyncio.Queue()
-    with open("/home/gdev/tmp/mcmc/latency", "w") as latency:
+    with open(f"{PATH_LOG}/latency", "w") as latency:
         latency.write("lecture;envoie\n")
         latency.write("0;0\n")
         latency.flush()
         cl = connexion.Client(local_name="j4", connect_to=("10.0.12.18", 5000), sending_queue=queue_to_send, log_latency=latency, verbose=True)
+        # cl = connexion.Client(local_name="j4", connect_to=("localhost", 5000), sending_queue=queue_to_send, log_latency=latency, verbose=True)
 
         trainer = asyncio.create_task(train_model(queue_to_send))
         client = asyncio.create_task(cl.start())

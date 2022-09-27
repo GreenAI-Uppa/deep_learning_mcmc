@@ -6,7 +6,7 @@ import torch
 
 from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
-BATCH_SIZE = 128
+PATH_LOG = "/home/gdev/tmp/mcmc"
 CHANNELS = 32
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_fn = torch.nn.CrossEntropyLoss()
@@ -34,7 +34,6 @@ params = {
                     {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000},
                     {"sampler": {"name" : "Student","variance":0.0000001 }, "prior" : {"name" : "Student", "variance": 0.001}, "lamb":100000}
                 ],
-                "iter_mcmc" : 200
         },
 	"dataset": "CIFAR",
 	"measure_power": 0
@@ -83,7 +82,7 @@ async def trainer(reading_queue, sending_queue):
         pruning_level=0,
         sending_queue=sending_queue,
         reading_queue=reading_queue, # voir pour la lecture des données sur la manière de s'y prendre
-        log_path="/home/gdev/tmp/mcmc/data"
+        log_path=f"{PATH_LOG}/data"
     )
     print("Start training\n")
     
@@ -94,9 +93,10 @@ async def trainer(reading_queue, sending_queue):
 async def main():
     reading_queue = asyncio.Queue()
     sending_queue = asyncio.Queue()
-    with open("/home/gdev/tmp/mcmc/latency", "w") as latency:
+    with open(f"{PATH_LOG}/latency", "w") as latency:
         latency.write("lecture;envoie\n")
         sv = connexion.Serveur(local_name="p2", sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="p4", send_to="j2", verbose=True)
+        # sv = connexion.Serveur(local_name="p2", address=("localhost", 5001), sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="p4", send_to="j2", verbose=True)
 
         server = asyncio.create_task(sv.start())
         runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))
