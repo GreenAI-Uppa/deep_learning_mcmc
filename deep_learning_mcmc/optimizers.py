@@ -575,8 +575,6 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             self.doc.flush()
             self.x += 1
             await asyncio.sleep(.1)
-            if decision == 'accepted':
-                break
             if self.reading_queue and self.reading_queue.qsize() > 0:
                 break
 
