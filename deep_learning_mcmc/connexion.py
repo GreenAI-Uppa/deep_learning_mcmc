@@ -198,8 +198,7 @@ class Serveur(Connect):
             reader (_type_): reading object from asyncio
             writer (_type_): writing object from asyncio
         """
-        # addr = writer.get_extra_info('peername')[0] # -> get client ip
-        # print(f"New connection from {addr}")
+        print(f"New connection from {self.sock.getpeername()}")
         loop = asyncio.get_event_loop()
         
         # recv part
