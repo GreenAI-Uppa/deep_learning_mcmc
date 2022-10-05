@@ -3,6 +3,7 @@ import sys
 import time
 import socket
 import json
+
 class Connect():
     """
     A root class to send / read data based on asyncio tcp sockets
@@ -175,7 +176,6 @@ class Serveur(Connect):
         self.send_to = send_to.encode() if type(send_to) is str else send_to
         self.read_from = read_from.encode() if type(read_from) is str else read_from
         self.stop_string = '__stop'.encode()
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8_388_608) 
         self.sock.bind(self.address)
         self.sock.listen(2)
         self.sock.setblocking(False)

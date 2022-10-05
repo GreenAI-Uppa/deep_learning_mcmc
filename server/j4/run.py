@@ -89,7 +89,7 @@ async def train_model(queue):
     select =  selector.build_selector(config) 
     optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
-        iter_mcmc=200,
+        iter_mcmc=1,
         prior=samplers,
         selector=select,
         pruning_level=0,
