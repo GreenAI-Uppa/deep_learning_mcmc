@@ -175,7 +175,6 @@ class Serveur(Connect):
         self.send_to = send_to.encode() if type(send_to) is str else send_to
         self.read_from = read_from.encode() if type(read_from) is str else read_from
         self.stop_string = '__stop'.encode()
-        # self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8_388_608) 
         self.sock.bind(self.address)
         self.sock.listen(2)
@@ -186,7 +185,7 @@ class Serveur(Connect):
         loop = asyncio.get_event_loop()
         try:
             while True:
-                client, _ = await loop.sock_accept(self.server)
+                client, _ = await loop.sock_accept(self.sock)
                 loop.create_task(self.handle_client(client))
         except KeyboardInterrupt as e:
             print("server stopped")

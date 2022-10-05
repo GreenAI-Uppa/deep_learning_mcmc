@@ -49,18 +49,16 @@ The communication between the devices is one-way and linear. We, therefore, use 
 ### 1. If you have access to the GreenAI cluster
 
 **Common start**: 
-- Clone this git on your computer
-- run `server/update_scripts.sh` from the server directory to copy each script on its dedicated device
-- run `monitoring/mounting_data.sh` from the monitoring directory to mount each log file on its dedicated directory in order to run the streamlit dashboard on your own computer
+- **On each cluster's device:** Clone this git 
+- **On your own computer:** run `monitoring/mounting_data.sh` from the monitoring directory to mount each log file on its dedicated directory in order to run the streamlit dashboard on your own computer
 
 #### Quick solution
 
 - Start an ssh connexion on each device with the gdev user. 
-- update the `~/deep_learning_mcmc` directory with `git pull` and run `pip install .`
-- Go to `~/script`
+- Go to the `~/deep_learning_mcmc` directory and run `pip install .` to update package version
+- Go to `~/deep_learning_mcmc/server/<device name>`
 - run `python3 run.py` following this order: p8, p2, j4, p4, j2
 - Start the streamlit dashboard on your own computer by running `streamlit run monitoring/Home.py`  
-- enjoy!
 
 #### Detailed solution
 
