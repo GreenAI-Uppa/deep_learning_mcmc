@@ -96,6 +96,7 @@ class Connect():
         request = b''
         while (self.stop_string not in request): 
             request = await self.sock.recv(8_388_608)# -> va lire un packet de bytes du buffer de la socket
+            print('reading')
             i += 1
             # calcul du temps de reception 
             if new:
@@ -203,6 +204,7 @@ class Serveur(Connect):
         
         # recv part
         request = await loop.sock_recv(client, 1024) # -> va lire un packet de bytes du buffer de la socket
+        print(f'from: {request.decode()}')
         if request.decode() == self.read_from.decode(): # lecture de la socket
             await self.reading(client, loop)
         else: # sinon envoie de données dans la socket
