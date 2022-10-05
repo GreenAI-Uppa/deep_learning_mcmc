@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import time
+import json 
 
 class Connect():
     """
@@ -94,7 +95,7 @@ class Connect():
         to_send = b''
         request = b''
         while (self.stop_string not in request): 
-            request = await reader.read(1024) # -> va lire un packet de bytes du buffer de la socket
+            request = await reader.read(8_388_608) # -> va lire un packet de bytes du buffer de la socket
             i += 1
             # calcul du temps de reception 
             if new:
@@ -108,7 +109,7 @@ class Connect():
                     lecture = time.time()
                     # decoding
                     d = full_data.split('__fin__')
-                    data = eval(d[0])
+                    data = json.loads(d[0])
                     envoie = time.time()
                     # ajout des données à la queue
                     await self.reading_queue.put(data) 
@@ -151,7 +152,7 @@ class Client(Connect):
     
     async def start(self):
         '''start tcp client'''
-        self.reader, self.writer = await asyncio.open_connection(*self.connect_to)
+        self.reader, self.writer = await asyncio.open_connection(*self.connect_to, limit=8_388_608)
         print(f'{self.local_name} client connected to {self.connect_to}')
         
         await self.declare()
@@ -180,7 +181,7 @@ class Serveur(Connect):
         
     async def start(self):
         '''start tcp server'''
-        server = await asyncio.start_server(self.handle_client, *self.address) # -> création du serveur
+        server = await asyncio.start_server(self.handle_client, *self.address, limit=8_388_608) # -> création du serveur
         async with server:
             await server.serve_forever()
         
@@ -195,7 +196,7 @@ class Serveur(Connect):
         print(f"New connection from {addr}")
 
         # recv part
-        request = await reader.read(1024) # -> va lire un packet de bytes du buffer de la socket
+        request = await reader.read(8_388_608) # -> va lire un packet de bytes du buffer de la socket
         if request.decode() == self.read_from.decode(): # lecture de la socket
             await self.reading(reader)
         else: # sinon envoie de données dans la socket
