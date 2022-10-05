@@ -558,7 +558,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
                     self.relevance_dict_linear_layer['bias'][idces[1]] +=1
 
                 if layer_idx == 0 and self.sending_queue and activation_layer:
-                    to_send = (self.activation.get(activation_layer).tolist(), y.tolist(), time.time(), self.id_batch) # récupérer la sortie de la première couche de convolution apres model(X)
+                    to_send = [self.activation.get(activation_layer).tolist(), y.tolist(), time.time(), self.id_batch] # récupérer la sortie de la première couche de convolution apres model(X)
                     await self.sending_queue.put(to_send)
             else:
                 # not accepting, so undoing the change
