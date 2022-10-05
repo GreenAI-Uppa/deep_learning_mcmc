@@ -1,8 +1,6 @@
 import asyncio
 import sys
 import time
-import socket
-import json
 
 class Connect():
     """
@@ -60,9 +58,8 @@ class Connect():
         self.log_latency = log_latency
         self.verbose = verbose
         self.stop_string = '__stop'.encode()
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
-    async def sending(self, client, loop): 
+    async def sending(self, writer):
         """sending data to tcp socket
 
         Args:
@@ -73,18 +70,20 @@ class Connect():
         """
         data_to_send = await self.sending_queue.get()
         continue_while_loop = '__stop' not in data_to_send
-        data_to_send = f'{data_to_send}__fin'.encode()
+        data_to_send = f'{data_to_send}__fin__'.encode()
 
         if self.verbose:
             print(f'''\nsending {sys.getsizeof(data_to_send):,} Bytes | {self.sending_queue.qsize():>3} in queue\n-------------''')
 
-        await loop.sock_sendall(client, data_to_send)
+        writer.write(data_to_send)
+        await writer.drain()
+
         print('! sent')
         self.sending_queue.task_done()
 
         return continue_while_loop
-
-    async def reading(self, client, loop): 
+        
+    async def reading(self, reader):
         """reading data from tcp socket
 
         Args:
@@ -95,7 +94,7 @@ class Connect():
         to_send = b''
         request = b''
         while (self.stop_string not in request): 
-            request = await loop.sock_recv(client, 8_388_608)# -> va lire un packet de bytes du buffer de la socket
+            request = await reader.read(1024) # -> va lire un packet de bytes du buffer de la socket
             i += 1
             # calcul du temps de reception 
             if new:
@@ -103,25 +102,26 @@ class Connect():
                 new = False
             to_send += request # -> stocke le message reçu dans une variable globale 
             
-            if b'__fin' in request:
+            if (i % 2500 == 0):
                 full_data = to_send.decode()
-                lecture = time.time()
-                # decoding
-                d = full_data.split('__fin')
-                data = json.loads(d[0])
-                envoie = time.time()
-                # ajout des données à la queue
-                await self.reading_queue.put(data) 
+                if "__fin__" in full_data:
+                    lecture = time.time()
+                    # decoding
+                    d = full_data.split('__fin__')
+                    data = eval(d[0])
+                    envoie = time.time()
+                    # ajout des données à la queue
+                    await self.reading_queue.put(data) 
+                        
+                    if self.verbose: self._details(i, sys.getsizeof(to_send), envoie, lecture, t0, data[2])
                     
-                if self.verbose: self._details(i, sys.getsizeof(to_send), envoie, lecture, t0, data[2])
-                
-                if self.log_latency:
-                    self.log_latency.write(f'{lecture-t0};{envoie-data[2]}\n')
-                    self.log_latency.flush()
-                i = 0
-                
-                to_send = d[1].encode()
-                new = True
+                    if self.log_latency:
+                        self.log_latency.write(f'{lecture-t0};{envoie-data[2]}\n')
+                        self.log_latency.flush()
+                    i = 0
+                    
+                    to_send = d[1].encode()
+                    new = True
                     
                 if "__stop" in full_data:
                     print("end of reading__")
@@ -145,29 +145,29 @@ class Client(Connect):
     def __init__(self, local_name, connect_to, reading_queue=None, sending_queue=None, log_latency=None, verbose=False):
         super().__init__(local_name, reading_queue, sending_queue, log_latency, verbose)
         self.connect_to = connect_to
+        self.reader, self.writer = None, None
         if self.reading_queue and self.sending_queue:
-            raise ValueError("define your client with reading OR sending")
-        
+            raise ValueError("define client with reading or sending")
+    
     async def start(self):
         '''start tcp client'''
-        self.sock.connect(self.connect_to)
-        loop = asyncio.get_event_loop()
+        self.reader, self.writer = await asyncio.open_connection(*self.connect_to)
         print(f'{self.local_name} client connected to {self.connect_to}')
         
-        await self.declare(self.sock, loop)
+        await self.declare()
         
         if self.reading_queue:
-            await self.reading(self.sock, loop)
-            
+            await self.reading(self.reader)
         if self.sending_queue:
             run = True
             while run:
-                run = await self.sending(self.sock, loop)
+                run = await self.sending(self.writer)
             print("end of writing__")
         
-    async def declare(self, client, loop):
+    async def declare(self):
         '''declare client to server with a tcp send with its local name'''
-        await loop.sock_sendall(client, self.local_name.encode())
+        self.writer.write(self.local_name.encode())
+        await self.writer.drain()
         
         
 class Serveur(Connect):
@@ -177,41 +177,30 @@ class Serveur(Connect):
         self.send_to = send_to.encode() if type(send_to) is str else send_to
         self.read_from = read_from.encode() if type(read_from) is str else read_from
         self.stop_string = '__stop'.encode()
-        self.sock.bind(self.address)
-        self.sock.listen(2)
-        self.sock.setblocking(False)
         
     async def start(self):
         '''start tcp server'''
-        loop = asyncio.get_event_loop()
-        try:
-            while True:
-                client, _ = await loop.sock_accept(self.sock)
-                loop.create_task(self.handle_client(client))
-        except KeyboardInterrupt as e:
-            print("server stopped")
-            self.sock.close()
-            
-    async def handle_client(self, client):
+        server = await asyncio.start_server(self.handle_client, *self.address) # -> création du serveur
+        async with server:
+            await server.serve_forever()
+        
+    async def handle_client(self, reader, writer):
         """applied function to each client connected to server
 
         Args:
             reader (_type_): reading object from asyncio
             writer (_type_): writing object from asyncio
         """
-        print(f"New connection from {client.getpeername()}")
-        loop = asyncio.get_event_loop()
-        
+        addr = writer.get_extra_info('peername')[0] # -> get client ip
+        print(f"New connection from {addr}")
+
         # recv part
-        request = await loop.sock_recv(client, 1024) # -> va lire un packet de bytes du buffer de la socket
-        print(f'from: {request.decode()}')
+        request = await reader.read(1024) # -> va lire un packet de bytes du buffer de la socket
         if request.decode() == self.read_from.decode(): # lecture de la socket
-            await self.reading(client, loop)
+            await self.reading(reader)
         else: # sinon envoie de données dans la socket
             # envoie des données pretes dans le buffer de sortie
             run = True
             while run:
-                run = await self.sending(client, loop)
+                run = await self.sending(writer)
             print("end of writing__")
-
-
