@@ -95,8 +95,7 @@ class Connect():
         to_send = b''
         request = b''
         while (self.stop_string not in request): 
-            request = await self.sock.recv(8_388_608)# -> va lire un packet de bytes du buffer de la socket
-            print('reading')
+            request = self.sock.recv(8_388_608)# -> va lire un packet de bytes du buffer de la socket
             i += 1
             # calcul du temps de reception 
             if new:

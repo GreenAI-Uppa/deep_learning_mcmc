@@ -578,7 +578,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             if self.reading_queue and self.reading_queue.qsize() > 0:
                 break
 
-        print(f'200 mcmc time: {time.time()-t0:,}s')
+        print(f'{self.iter_mcmc} mcmc time: {time.time()-t0:,}s')
         if self.sending_queue and self.sending_queue.qsize() > 20:
             print('sleeping 80s because too long queue')
             await asyncio.sleep(20*4)
