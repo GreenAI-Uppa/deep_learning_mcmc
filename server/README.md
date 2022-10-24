@@ -37,7 +37,7 @@ Each intermediate device contains a classifier to visualize the evolution of the
 We can see beside how we designed each model on our architecture.
 
 <center>
-<img src="img/glob.png" alt="archi" width="200"/>
+<img src="img/glob.png" alt="archi" width="600"/>
 </center>
 
 The communication between the devices is one-way and linear. We, therefore, use TCP client-server communication between the devices. For more information on TCP sockets: [find more here](https://fr.wikipedia.org/wiki/Transmission_Control_Protocol)
