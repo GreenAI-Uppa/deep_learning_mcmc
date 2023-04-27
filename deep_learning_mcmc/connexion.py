@@ -103,26 +103,26 @@ class Connect():
                 new = False
             to_send += request # -> stocke le message reçu dans une variable globale 
             
-            if (i % 2500 == 0):
+            if b'__fin__' in to_send:
                 full_data = to_send.decode()
-                if "__fin__" in full_data:
-                    lecture = time.time()
-                    # decoding
-                    d = full_data.split('__fin__')
-                    data = json.loads(d[0])
-                    envoie = time.time()
-                    # ajout des données à la queue
-                    await self.reading_queue.put(data) 
-                        
-                    if self.verbose: self._details(i, sys.getsizeof(to_send), envoie, lecture, t0, data[2])
+                # if "__fin__" in full_data:
+                lecture = time.time()
+                # decoding
+                d = full_data.split('__fin__')
+                data = json.loads(d[0])
+                envoie = time.time()
+                # ajout des données à la queue
+                await self.reading_queue.put(data) 
                     
-                    if self.log_latency:
-                        self.log_latency.write(f'{lecture-t0};{envoie-data[2]}\n')
-                        self.log_latency.flush()
-                    i = 0
-                    
-                    to_send = d[1].encode()
-                    new = True
+                if self.verbose: self._details(i, sys.getsizeof(to_send), envoie, lecture, t0, data[2])
+                
+                if self.log_latency:
+                    self.log_latency.write(f'{lecture-t0};{envoie-data[2]}\n')
+                    self.log_latency.flush()
+                i = 0
+                
+                to_send = d[1].encode()
+                new = True
                     
                 if "__stop" in full_data:
                     print("end of reading__")
@@ -196,7 +196,7 @@ class Serveur(Connect):
         print(f"New connection from {addr}")
 
         # recv part
-        request = await reader.read(8_388_608) # -> va lire un packet de bytes du buffer de la socket
+        request = await reader.read(1024) # -> va lire un packet de bytes du buffer de la socket
         if request.decode() == self.read_from.decode(): # lecture de la socket
             await self.reading(reader)
         else: # sinon envoie de données dans la socket
