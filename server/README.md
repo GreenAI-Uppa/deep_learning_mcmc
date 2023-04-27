@@ -135,3 +135,5 @@ In progress....
 - Regarding a Jetson Nano 4GB, to exploit the max power of the board: `sudo nvpmodel -m 0` (Already running on our device)
 - Current version doesn't use any sparsity or Binary operation
 - Current version hasn't test set 
+- Useful cmd: 
+  - `cd ~/deep_learning_mcmc && git pull && pip install --upgrade pip && pip install . && cd ~/script`

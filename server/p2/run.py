@@ -76,7 +76,7 @@ async def trainer(reading_queue, sending_queue):
     select =  selector.build_selector(config) # renvoie n poids du layer tirés aléatoirement
     optimizer = optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
-        iter_mcmc=1,
+        iter_mcmc=200,
         prior=samplers,
         selector=select,
         pruning_level=0,
