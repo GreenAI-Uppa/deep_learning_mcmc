@@ -11,10 +11,11 @@ from torchvision.transforms import ToTensor
 from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
 PATH_LOG = "/home/gdev/tmp/mcmc"
-BATCH_SIZE = 64
+BATCH_SIZE = 1024
 CHANNELS = 3
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_fn = torch.nn.CrossEntropyLoss()
+n_epochs = 5
 
 params = {
         "epochs": 10,
@@ -56,7 +57,7 @@ def init_data():
         train=False,
         download=True,
         transform=ToTensor())
-    return DataLoader(training_data, batch_size=BATCH_SIZE, num_workers=16), DataLoader(test_data, batch_size=50000, num_workers=16)
+    return DataLoader(training_data, batch_size=BATCH_SIZE), DataLoader(test_data, batch_size=BATCH_SIZE)
 
 def init_model():
     '''init our convnet'''
@@ -78,7 +79,7 @@ def set_config():
 async def train_model(queue):
     '''create and train model'''
     print("Init started\n")
-    train_dataloader, _ = init_data()
+    train_dataloader, test_dataloader = init_data()
     model = init_model()
     model = model.to(device)
     print("Init finished\n")
@@ -89,24 +90,29 @@ async def train_model(queue):
     select =  selector.build_selector(config) 
     optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
-        iter_mcmc=200,
+        iter_mcmc=2,
         prior=samplers,
         selector=select,
         pruning_level=0,
-        sending_queue=queue,
+        # sending_queue=queue,
         log_path=f"{PATH_LOG}/data"
     )
     print("Start training\n")
     
-    _ = await optimizer.train_1_epoch(
-        dataloader=train_dataloader,
-        model=model,
-        loss_fn=loss_fn,
-        verbose=False,
-        activation_layer="conv1"
-    )
+    for epoch in range(n_epochs):
+        _ = await optimizer.train_1_epoch(
+            dataloader=train_dataloader,
+            model=model,
+            loss_fn=loss_fn,
+            verbose=False,
+            activation_layer="conv1",
+            # test_dataloader=test_dataloader
+        )
+        
+        print(f'fin epoch n°{epoch+1}')
     optimizer.doc.close() # close log file after finishing training
-
+    
+    
 async def main():
     """
     2 concurrency task are running:
@@ -118,7 +124,7 @@ async def main():
         latency.write("lecture;envoie\n")
         latency.write("0;0\n")
         latency.flush()
-        cl = connexion.Client(local_name="j4", connect_to=("10.0.12.18", 5000), sending_queue=queue_to_send, log_latency=latency, verbose=True)
+        cl = connexion.Client(local_name="j4", connect_to=("10.0.12.18", 5000), log_latency=latency, verbose=True)
         # cl = connexion.Client(local_name="j4", connect_to=("localhost", 5000), sending_queue=queue_to_send, log_latency=latency, verbose=True)
 
         trainer = asyncio.create_task(train_model(queue_to_send))

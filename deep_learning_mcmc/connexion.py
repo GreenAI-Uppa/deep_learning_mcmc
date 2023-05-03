@@ -128,6 +128,11 @@ class Connect():
                     print("end of reading__")
                     break
                 
+                if "__test__" in full_data:
+                    print('TEST ZONE')
+                
+                
+                
     def _details(self, i, byte_size, envoie, lecture, t0, t1): # -> Connect
         '''print details during reading data'''
         print(f'''

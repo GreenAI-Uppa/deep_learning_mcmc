@@ -437,7 +437,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             self.activation[name] = output.detach()
         return hook
     
-    async def train_1_epoch(self, model, loss_fn, dataloader=None, verbose=False, activation_layer=None):
+    async def train_1_epoch(self, model, loss_fn, dataloader=None, verbose=False, activation_layer=None, test_dataloader=None):
         """
         train for 1 epoch and collect the acceptance ratio
         dataloader => only for the first one (j4)
@@ -455,10 +455,13 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             self.x = 0
             while True: # TODO: définir un arret avec break if __stop par ex
                 data = await self.reading_queue.get()
+                
+                # ajouter if data[3] == "__test__" => alors test, sinon R
+
                 X, y = torch.tensor(data[0]), torch.tensor(data[1])
                 # if self.id_batch != data[3]:
                 self.id_batch = data[3] 
-                
+
                 if self.data_points_max <= num_items_read:
                     break
                 X = X[:min(self.data_points_max - num_items_read, X.shape[0])]
@@ -466,7 +469,12 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
                 num_items_read = min(self.data_points_max, num_items_read + X.shape[0])
                 X = X.to(device)
                 y = y.to(device)
+                
+                batch_time = time.time()
                 acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=loss_fn, verbose=verbose, activation_layer=activation_layer)
+                print(f'>> batch_time: {time.time() - batch_time:.3}s')
+                
+                
                 self.reading_queue.task_done()
                 
                 # ajouter une condition d'arret de la boucle
@@ -485,7 +493,37 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             X = X.to(device)
             y = y.to(device)
             acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=loss_fn, verbose=verbose, activation_layer=activation_layer)
+            
+        if test_dataloader: # evaluation and send to next device
+            test_loss, correct = await self.evaluate_on_test(test_dataloader, send_conv=activation_layer)
+            print("test_loss: ", test_loss, "correct: ", correct)
         return acceptance_ratio
+    
+    
+    async def evaluate_on_test(self, dataloader, send_conv=None):
+        device = next(self.model.parameters()).device
+        size = len(dataloader.dataset)
+        test_loss, correct = 0, 0
+        with torch.no_grad():
+            for X, y in dataloader:
+                X = X.to(device)
+                y = y.to(device)
+                pred = self.model(X)
+                test_loss += self.loss_fn(pred, y).item()
+                correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+                
+                if send_conv:
+                    # send test data à chaque batch sinon trop lourd
+                    self.activation.get('conv1')
+            
+            
+                to_send = [self.activation.get(send_conv).tolist(), y.tolist(), time.time(), self.id_batch, '__test__'] # récupérer la sortie de la première couche de convolution apres model(X)
+                await self.sending_queue.put(to_send)
+                
+        test_loss /= size/dataloader.batch_size
+        correct /= size
+        return test_loss, correct
+
 
     async def train_1_batch(self, X, y, model, loss_fn, verbose=False, activation_layer=None):
         """
