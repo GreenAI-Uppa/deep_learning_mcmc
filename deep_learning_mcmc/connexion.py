@@ -152,7 +152,7 @@ class Client(Connect):
         super().__init__(local_name, reading_queue, sending_queue, log_latency, verbose)
         self.connect_to = connect_to
         self.reader, self.writer = None, None
-        if self.reading_queue and self.sending_queue:
+        if self.reading_queue is None and self.sending_queue is None:
             raise ValueError("define client with reading or sending")
     
     async def start(self):

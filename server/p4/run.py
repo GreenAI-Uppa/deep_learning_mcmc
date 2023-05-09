@@ -6,10 +6,12 @@ import torch
 
 from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
-PATH_LOG = "/home/gdev/tmp/mcmc"
+# PATH_LOG = "/home/gdev/tmp/mcmc"
+PATH_LOG = "/home/mfrancois/Documents/mas/p4"
 CHANNELS = 32
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_fn = torch.nn.CrossEntropyLoss()
+iter_mcmc = 10
 
 params = {
         "batch_size": 50000, 
@@ -78,7 +80,7 @@ async def trainer(reading_queue, sending_queue):
     select =  selector.build_selector(config) # renvoie n poids du layer tirés aléatoirement
     optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
-        iter_mcmc=200,
+        iter_mcmc=iter_mcmc,
         prior=samplers,
         selector=select,
         pruning_level=0,
@@ -96,12 +98,12 @@ async def main():
     sending_queue = asyncio.Queue()
     with open(f"{PATH_LOG}/latency", "w") as latency:
         latency.write("lecture;envoie\n")
-        cl1 = connexion.Client(local_name="p4", connect_to=('10.0.12.18', 5000), reading_queue=reading_queue, log_latency=latency, verbose=True)
-        # cl1 = connexion.Client(local_name="p4", connect_to=('locahost', 5000), reading_queue=reading_queue, log_latency=latency, verbose=True)
+        # cl1 = connexion.Client(local_name="p4", connect_to=('10.0.12.18', 5000), reading_queue=reading_queue, log_latency=latency, verbose=True)
+        # cl2 = connexion.Client(local_name="p4", connect_to=('10.0.12.90', 5000), sending_queue=sending_queue, log_latency=latency, verbose=True)
 
-        cl2 = connexion.Client(local_name="p4", connect_to=('10.0.12.90', 5000), sending_queue=sending_queue, log_latency=latency, verbose=True)
-        # cl2 = connexion.Client(local_name="p4", connect_to=('locahost', 5001), sending_queue=sending_queue, log_latency=latency, verbose=True)
-
+        cl1 = connexion.Client(local_name="p4", connect_to=('localhost', 5000), reading_queue=reading_queue, log_latency=latency, verbose=True)
+        cl2 = connexion.Client(local_name="p4", connect_to=('localhost', 5001), sending_queue=sending_queue, log_latency=latency, verbose=True)
+        
         reader = asyncio.create_task(cl1.start())
         sender = asyncio.create_task(cl2.start())
         runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))

@@ -9,10 +9,12 @@ from torchvision.transforms import ToTensor
 
 from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
-PATH_LOG = "/home/gdev/tmp/mcmc"
+# PATH_LOG = "/home/gdev/tmp/mcmc"
+PATH_LOG = "/home/mfrancois/Documents/mas/p8"
 CHANNELS = 32
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_fn = torch.nn.CrossEntropyLoss()
+iter_mcmc = 10
 
 params = {
         "batch_size": 50000, 
@@ -90,7 +92,7 @@ async def trainer(reading_queue, sending_queue):
     select =  selector.build_selector(config) # renvoie n poids du layer tirés aléatoirement
     optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
-        iter_mcmc=200,
+        iter_mcmc=iter_mcmc,
         prior=samplers,
         selector=select,
         pruning_level=0,
@@ -110,8 +112,8 @@ async def main():
         latency.write("lecture;envoie\n")
         reading_queue = asyncio.Queue()
         sending_queue = asyncio.Queue()
-        sv = connexion.Serveur(local_name="p8", sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="j4", send_to="p4", verbose=True)
-        # sv = connexion.Serveur(local_name="p8", address=("localhost",5000), sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="j4", send_to="p4", verbose=True)
+        # sv = connexion.Serveur(local_name="p8", sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="j4", send_to="p4", verbose=True)
+        sv = connexion.Serveur(local_name="p8", address=("localhost",5000), sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="j4", send_to="p4", verbose=True)
 
         server = asyncio.create_task(sv.start())
         runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))

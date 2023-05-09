@@ -477,6 +477,9 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
                 
                 self.reading_queue.task_done()
                 
+            if test_dataloader: # evaluation and send to next device
+                test_loss, correct = await self.evaluate_on_test(test_dataloader, send_conv=activation_layer)
+                print("test_loss: ", test_loss, "correct: ", correct)
                 # ajouter une condition d'arret de la boucle
             return acceptance_ratio
 
@@ -597,7 +600,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
 
                 if layer_idx == 0 and self.sending_queue and activation_layer:
                     to_send = [self.activation.get(activation_layer).tolist(), y.tolist(), time.time(), self.id_batch] # récupérer la sortie de la première couche de convolution apres model(X)
-                    await self.sending_queue.put(to_send)
+                    # await self.sending_queue.put(to_send)
             else:
                 # not accepting, so undoing the change
                 self.selector.undo(model, neighborhood, epsilon)
@@ -616,8 +619,11 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
             if self.reading_queue and self.reading_queue.qsize() > 0:
                 break
         
-        # if self.sending_queue:
-        #     await self.sending_queue.put(to_send)
+        # envoie des données quoi qu'il arrive afin que chaque entité du collier de processeurs puisse voir chaque batch
+        # envoie en fin d'iter mcmc pour ne pas exploser le nombre de batch en fin de collier
+        if layer_idx == 0 and self.sending_queue and activation_layer:
+            await self.sending_queue.put(to_send)
+            
         print(f'{self.iter_mcmc} mcmc time: {time.time()-t0:,}s')
         if self.sending_queue and self.sending_queue.qsize() > 20:
             print('sleeping 80s because too long queue')

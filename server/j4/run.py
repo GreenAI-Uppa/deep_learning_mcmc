@@ -10,12 +10,14 @@ from torchvision.transforms import ToTensor
 
 from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
-PATH_LOG = "/home/gdev/tmp/mcmc"
-BATCH_SIZE = 1024
+# PATH_LOG = "/home/gdev/tmp/mcmc"
+PATH_LOG = "/home/mfrancois/Documents/mas/j4"
+BATCH_SIZE = 512
 CHANNELS = 3
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_fn = torch.nn.CrossEntropyLoss()
 n_epochs = 5
+iter_mcmc = 10
 
 params = {
         "epochs": 10,
@@ -90,16 +92,18 @@ async def train_model(queue):
     select =  selector.build_selector(config) 
     optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
-        iter_mcmc=2,
+        iter_mcmc=iter_mcmc,
         prior=samplers,
         selector=select,
         pruning_level=0,
-        # sending_queue=queue,
+        sending_queue=queue,
         log_path=f"{PATH_LOG}/data"
     )
     print("Start training\n")
     
     for epoch in range(n_epochs):
+        
+        epoch_time = time.time()
         _ = await optimizer.train_1_epoch(
             dataloader=train_dataloader,
             model=model,
@@ -109,7 +113,7 @@ async def train_model(queue):
             # test_dataloader=test_dataloader
         )
         
-        print(f'fin epoch n°{epoch+1}')
+        print(f'fin epoch n°{epoch+1} - time spent: {time.time() - epoch_time:.2}s')
     optimizer.doc.close() # close log file after finishing training
     
     
@@ -124,11 +128,12 @@ async def main():
         latency.write("lecture;envoie\n")
         latency.write("0;0\n")
         latency.flush()
-        cl = connexion.Client(local_name="j4", connect_to=("10.0.12.18", 5000), log_latency=latency, verbose=True)
-        # cl = connexion.Client(local_name="j4", connect_to=("localhost", 5000), sending_queue=queue_to_send, log_latency=latency, verbose=True)
+        # cl = connexion.Client(local_name="j4", connect_to=("10.0.12.18", 5000), sending_queue=queue_to_send, log_latency=latency, verbose=True)
+        cl = connexion.Client(local_name="j4", connect_to=("localhost", 5000), sending_queue=queue_to_send, log_latency=latency, verbose=True)
 
         trainer = asyncio.create_task(train_model(queue_to_send))
         client = asyncio.create_task(cl.start())
+
         await trainer
         print('fin trainer')
         await queue_to_send.put('__stop')

@@ -6,10 +6,12 @@ import torch
 
 from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
-PATH_LOG = "/home/gdev/tmp/mcmc"
+# PATH_LOG = "/home/gdev/tmp/mcmc"
+PATH_LOG = "/home/mfrancois/Documents/mas/p2"
 CHANNELS = 32
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_fn = torch.nn.CrossEntropyLoss()
+iter_mcmc = 10
 
 params = {
         "batch_size": 50000, 
@@ -76,7 +78,7 @@ async def trainer(reading_queue, sending_queue):
     select =  selector.build_selector(config) # renvoie n poids du layer tirés aléatoirement
     optimizer = optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
-        iter_mcmc=200,
+        iter_mcmc=iter_mcmc,
         prior=samplers,
         selector=select,
         pruning_level=0,
@@ -86,7 +88,7 @@ async def trainer(reading_queue, sending_queue):
     )
     print("Start training\n")
     
-    _ = await optimizer.train_1_epoch(model, loss_fn, verbose=False, activation_layer="conv1")
+    _ = await optimizer.train_1_epoch(model, loss_fn, verbose=True, activation_layer="conv1")
 
 
 
@@ -95,8 +97,8 @@ async def main():
     sending_queue = asyncio.Queue()
     with open(f"{PATH_LOG}/latency", "w") as latency:
         latency.write("lecture;envoie\n")
-        sv = connexion.Serveur(local_name="p2", sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="p4", send_to="j2", verbose=True)
-        # sv = connexion.Serveur(local_name="p2", address=("localhost", 5001), sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="p4", send_to="j2", verbose=True)
+        # sv = connexion.Serveur(local_name="p2", sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="p4", send_to="j2", verbose=True)
+        sv = connexion.Serveur(local_name="p2", address=("localhost", 5001), sending_queue=sending_queue, reading_queue=reading_queue, log_latency=latency, read_from="p4", send_to="j2", verbose=True)
 
         server = asyncio.create_task(sv.start())
         runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))

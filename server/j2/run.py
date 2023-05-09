@@ -6,11 +6,12 @@ import torch
 
 from deep_learning_mcmc import nets, optimizers, selector, stats, connexion
 
-PATH_LOG = "/home/gdev/tmp/mcmc"
+# PATH_LOG = "/home/gdev/tmp/mcmc"
+PATH_LOG = "/home/mfrancois/Documents/mas/j2"
 CHANNELS = 32
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_fn = torch.nn.CrossEntropyLoss()
-
+iter_mcmc = 10
 params = {
         "batch_size": 128, 
         "epochs": 10,
@@ -76,7 +77,7 @@ async def trainer(reading_queue):
     select =  selector.build_selector(config) # renvoie n poids du layer tirés aléatoirement
     optimizer = optimizer = optimizers.AsyncMcmcOptimizer(
         sampler=samplers,
-        iter_mcmc=200,
+        iter_mcmc=iter_mcmc,
         prior=samplers,
         selector=select,
         pruning_level=0,
@@ -93,8 +94,8 @@ async def main():
     reading_queue = asyncio.Queue()
     with open(f"{PATH_LOG}/latency", "w") as latency:
         latency.write("lecture;envoie\n")
-        cl = connexion.Client(local_name="j2", connect_to=('10.0.12.90', 5000), reading_queue=reading_queue, log_latency=latency, verbose=True)
-        # cl = connexion.Client(local_name="j2", connect_to=('localhost', 5001), reading_queue=reading_queue, log_latency=latency, verbose=True)
+        # cl = connexion.Client(local_name="j2", connect_to=('10.0.12.90', 5000), reading_queue=reading_queue, log_latency=latency, verbose=True)
+        cl = connexion.Client(local_name="j2", connect_to=('localhost', 5001), reading_queue=reading_queue, log_latency=latency, verbose=True)
 
         reader = asyncio.create_task(cl.start())
         runner = asyncio.create_task(trainer(reading_queue=reading_queue))
