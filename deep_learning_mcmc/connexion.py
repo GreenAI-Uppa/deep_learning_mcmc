@@ -104,16 +104,18 @@ class Connect():
             to_send += request # -> stocke le message reçu dans une variable globale 
             
             if b'__fin__' in to_send:
-                full_data = to_send.decode()
-                # if "__fin__" in full_data:
                 lecture = time.time()
                 # decoding
-                d = full_data.split('__fin__')
+                d = to_send.split(b'__fin__')
                 data = json.loads(d[0])
                 envoie = time.time()
                 # ajout des données à la queue
                 await self.reading_queue.put(data) 
                     
+                if b"__stop" in to_send:
+                    print("__stop detected, end of reading__")
+                    break
+                
                 if self.verbose: self._details(i, sys.getsizeof(to_send), envoie, lecture, t0, data[2])
                 
                 if self.log_latency:
@@ -121,14 +123,11 @@ class Connect():
                     self.log_latency.flush()
                 i = 0
                 
+                
                 to_send = d[1].encode()
                 new = True
                     
-                if "__stop" in full_data:
-                    print("__stop detected, end of reading__")
-                    break
-                
-                if "__test__" in full_data:
+                if b"__test__" in to_send:
                     print('TEST ZONE')
                 
                 
