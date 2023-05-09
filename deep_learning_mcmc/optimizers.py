@@ -621,7 +621,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
         
         # envoie des données quoi qu'il arrive afin que chaque entité du collier de processeurs puisse voir chaque batch
         # envoie en fin d'iter mcmc pour ne pas exploser le nombre de batch en fin de collier
-        if layer_idx == 0 and self.sending_queue and activation_layer:
+        if self.sending_queue and activation_layer:
             to_send = [self.activation.get(activation_layer).tolist(), y.tolist(), time.time(), self.id_batch] # récupérer la sortie de la première couche de convolution apres model(X)
             await self.sending_queue.put(to_send)
             
