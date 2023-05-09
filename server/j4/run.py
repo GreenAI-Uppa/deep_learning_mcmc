@@ -136,10 +136,11 @@ async def main():
 
         await trainer
         print('fin trainer')
-        await queue_to_send.put('__stop')
-        await client
+        await queue_to_send.put(['__stop'])
         await queue_to_send.join()
-    print('fin')
+        await client
+        print('send ok')
+    print(f'fin: {time.ctime()} - ts: {time.time()}s')
     
 
 

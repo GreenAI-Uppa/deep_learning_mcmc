@@ -99,9 +99,11 @@ async def main():
 
         reader = asyncio.create_task(cl.start())
         runner = asyncio.create_task(trainer(reading_queue=reading_queue))
+        
         await reader
+        print('end reader')
         await runner
-    print('fin d entrainement')
+    print(f'fin: {time.ctime()} - ts: {time.time()}s')
     
 if __name__ == "__main__":
     asyncio.run(main())

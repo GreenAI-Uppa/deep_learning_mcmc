@@ -108,9 +108,18 @@ async def main():
         sender = asyncio.create_task(cl2.start())
         runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))
 
+        await reader
+        print('end reader')
         await runner
+        await sending_queue.put(['__stop'])
+        print("stop sent")
+        await sending_queue.join()
         await sender
-        reader.cancel()
+        print('end send')
+
+    print(f'fin: {time.ctime()} - ts: {time.time()}s')
+
+
 
 if __name__ == "__main__":
     asyncio.run(main())

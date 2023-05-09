@@ -58,7 +58,7 @@ class Connect():
         self.sending_queue = sending_queue
         self.log_latency = log_latency
         self.verbose = verbose
-        self.stop_string = '__stop'.encode()
+        self.stop_string = b'__stop'
         
     async def sending(self, writer):
         """sending data to tcp socket
@@ -125,7 +125,7 @@ class Connect():
                 new = True
                     
                 if "__stop" in full_data:
-                    print("end of reading__")
+                    print("__stop detected, end of reading__")
                     break
                 
                 if "__test__" in full_data:

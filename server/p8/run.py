@@ -118,12 +118,16 @@ async def main():
         server = asyncio.create_task(sv.start())
         runner = asyncio.create_task(trainer(reading_queue=reading_queue, sending_queue=sending_queue))
 
-        await runner
-        await sending_queue.put('__stop')
         await reading_queue.join()
+        print("read ok")
+        await runner
+        await sending_queue.put(['__stop'])
+        print("stop sent")
         await sending_queue.join()
+        print('send ok')
         server.cancel()
-    print('fin')
+    print(f'fin: {time.ctime()} - ts: {time.time()}s')
+    
 
 if __name__ == "__main__":
     asyncio.run(main())

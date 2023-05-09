@@ -453,10 +453,13 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
         
         if self.reading_queue:
             self.x = 0
-            while True: # TODO: définir un arret avec break if __stop par ex
+            while True: 
                 data = await self.reading_queue.get()
                 
                 # ajouter if data[3] == "__test__" => alors test, sinon R
+                if data[0] == '__stop':
+                    self.reading_queue.task_done()
+                    break
 
                 X, y = torch.tensor(data[0]), torch.tensor(data[1])
                 # if self.id_batch != data[3]:
