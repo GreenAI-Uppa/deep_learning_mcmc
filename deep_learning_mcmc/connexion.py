@@ -124,7 +124,7 @@ class Connect():
                 i = 0
                 
                 
-                to_send = d[1].encode()
+                to_send = d[1]
                 new = True
                     
                 if b"__test__" in to_send:

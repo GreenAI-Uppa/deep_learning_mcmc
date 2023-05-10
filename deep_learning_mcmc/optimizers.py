@@ -458,6 +458,7 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
                 
                 # ajouter if data[3] == "__test__" => alors test, sinon R
                 if data[0] == '__stop':
+                    print("stop detected")
                     self.reading_queue.task_done()
                     break
 
@@ -476,7 +477,6 @@ class AsyncMcmcOptimizer(MCMCOptimizer):
                 batch_time = time.time()
                 acceptance_ratio += await self.train_1_batch(X, y, model, loss_fn=loss_fn, verbose=verbose, activation_layer=activation_layer)
                 print(f'>> batch_time: {time.time() - batch_time:.3}s')
-                
                 
                 self.reading_queue.task_done()
                 
